@@ -12,6 +12,7 @@ using System.Collections.ObjectModel;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
@@ -24,6 +25,11 @@ namespace SerialViewer_Plus.ViewModels
     {
         public ViewModelActivator Activator { get; } = new();
         [Reactive] public ICom Com { get; set; }
+
+        [Reactive] public int WindowSize { get; set; }
+        [Reactive] public bool IsPaused { get; set; }
+
+        public ReactiveCommand<Unit,Unit> ClearPointsCommand { get; init; }
         public ObservableCollection<ISeries> Series { get; set; } = new ObservableCollection<ISeries>();
         public ObservableCollection<ISeries> FFTs { get; set; } = new ObservableCollection<ISeries>();
 
@@ -43,7 +49,25 @@ namespace SerialViewer_Plus.ViewModels
             return values.ToArray();
         }
 
-        public uint SampleWindow = 128;
+        public const int SampleWindow = 512;
+
+        public static int FindPreviousPowerOf2(int n)
+        {
+            // initialize result by 1
+            int k = 1;
+
+            // double `k` and divide `n` in half till it becomes 0
+            while (n > 0)
+            {
+                k <<= 1;    // double `k`
+                n >>= 1;
+            }
+
+            return k/2;
+        }
+
+        [Reactive] public double GraphUPS { get; set; }
+        private int graphUpdateCount = 0;
 
         public TerminalViewModel()
         {
@@ -52,7 +76,7 @@ namespace SerialViewer_Plus.ViewModels
             var s1 = new ScatterSeries<ObservablePoint>()
             {
                 Values = points,
-                GeometrySize = 4,
+                GeometrySize = 1,
             };
             Series.Add(s1);
             var fftPoints = new ObservableCollection<ObservablePoint>();
@@ -62,12 +86,24 @@ namespace SerialViewer_Plus.ViewModels
                 GeometrySize = 1,
             });
 
+            ClearPointsCommand = ReactiveCommand.Create(() => points.Clear(), null, RxApp.MainThreadScheduler);
+
             DSPLib.FFT fft = new DSPLib.FFT();
-            fft.Initialize(SampleWindow);
             this.WhenActivated((CompositeDisposable registration) =>
             {
+                TimeSpan StatsInterval = TimeSpan.FromSeconds(0.5);
+                Observable.Timer(TimeSpan.Zero, StatsInterval)
+                          .ObserveOn(RxApp.MainThreadScheduler)
+                          .Subscribe(_ =>
+                          {
+                              GraphUPS = graphUpdateCount / StatsInterval.TotalSeconds;
+                              graphUpdateCount = 0;
+                          })
+                          .DisposeWith(registration);
+
 
                 Com.IncomingStream
+                .Where(_ => !IsPaused)
                 .ObserveOn(RxApp.TaskpoolScheduler)
                 .Select(s =>
                 {
@@ -75,29 +111,40 @@ namespace SerialViewer_Plus.ViewModels
                     var values = ParseString(s);
                     if (values.Length == 2)
                     {
-                        Log.Information($"X: {values[0]}, Y: {values[1]}");
                         return new ObservablePoint(values[0], values[1]);
                     }
                     return null;
                 })
                 .Where(p => p != null)
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(p =>
+                .Do(p =>
                 {
                     points.Add(p);
+                    graphUpdateCount++;
                     while(points.Count > SampleWindow)
                     {
                         points.RemoveAt(0);
                     }
-                    if(points.Count == SampleWindow)
+
+                    
+                })
+                .Sample(TimeSpan.FromSeconds(0.5))
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(p =>
+                {
+                    if (points.Count >= 16)//points.Count == SampleWindow)
                     {
-                        var sampleTime = (points[points.Count - 1].X - points[0].X) ?? 0.01;
-                        sampleTime /= points.Count;
-                        Complex[] cSpectrum = fft.Execute(points.Select(op => op.Y ?? 0.0).ToArray());
+                        WindowSize = FindPreviousPowerOf2(points.Count);
+
+                        fft.Initialize((uint)WindowSize);
+
+                        var sampleTime = (points[points.Count - 1].X - points[points.Count - WindowSize].X) ?? 0.01;
+                        sampleTime /= WindowSize;
+                        Complex[] cSpectrum = fft.Execute(points.Select(op => op.Y ?? 0.0).TakeLast(WindowSize).ToArray());
                         double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
-                        double[] freqSpan = fft.FrequencySpan(1.0/sampleTime);
+                        double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
                         fftPoints.Clear();
-                        for(int i = 0; i < lmSpectrum.Length; i++)
+                        for (int i = 0; i < lmSpectrum.Length; i++)
                         {
                             fftPoints.Add(new ObservablePoint(freqSpan[i], lmSpectrum[i]));
                         }

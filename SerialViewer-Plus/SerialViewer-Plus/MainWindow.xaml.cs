@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -33,11 +34,26 @@ namespace SerialViewer_Plus
             this.WhenActivated((CompositeDisposable registration) =>
             {
                 ViewModel.WhenAnyValue(vm => vm.Series)
+                         .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => chart.Series = series)
                          .DisposeWith(registration);
                 ViewModel.WhenAnyValue(vm => vm.FFTs)
+                         .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => fftView.Series = series)
                          .DisposeWith(registration);
+
+                ViewModel.WhenAnyValue(vm => vm.WindowSize)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(ws => fftWindowSizeLabel.Content = $"{ws}")
+                         .DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.GraphUPS)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(ups => upsGraphLabel.Content = $"Graph UPS: {ups:0.0} ({1000/ups:0.0} ms)")
+                         .DisposeWith(registration);
+
+                this.Bind(ViewModel, vm => vm.IsPaused, v => v.pauseButton.IsChecked).DisposeWith(registration);
+
+                this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
             });
         }
     }

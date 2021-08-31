@@ -18,16 +18,22 @@ namespace SerialViewer_Plus.Com
 
         private double t = 0;
 
+        private const double SinMultiplier = 2 * Math.PI;
+
+        public double sqrWave(double frequency, double time) => (Math.Sin(2*Math.PI*frequency*time) >= 0) ? 1 : 0;
+
+
         public EmulatedCom()
         {
             Random r = new Random();
-            Observable.Timer(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(1))
+            Observable.Timer(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(15))
                       .ObserveOn(RxApp.TaskpoolScheduler)
                       .TimeInterval()
                       .Subscribe(iv =>
                       {
                           t += iv.Interval.TotalSeconds;
-                          double y = Math.Sin(t) + Math.Sin(t * 4) + Math.Sin(t * 100);
+
+                          double y = sqrWave(1, t) + sqrWave(25, t) + Math.Sin(2*Math.PI*t*15);
                           incomingBuffer.Post($"{t}, {y}\r\n");
                       })
                       .DisposeWith(registration);
