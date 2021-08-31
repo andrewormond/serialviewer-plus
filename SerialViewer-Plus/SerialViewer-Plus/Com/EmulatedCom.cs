@@ -20,21 +20,53 @@ namespace SerialViewer_Plus.Com
 
         private const double SinMultiplier = 2 * Math.PI;
 
-        public double sqrWave(double frequency, double time) => (Math.Sin(2*Math.PI*frequency*time) >= 0) ? 1 : 0;
+        public double sinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
+        public double sqrWave(double frequency, double time) => (sinWave(frequency,time) >= 0) ? 1 : -1;
 
+        public double PollingFrequency { get; init; } = 200;
+        public const double CutoffFrequency = 50;
 
         public EmulatedCom()
         {
-            Random r = new Random();
-            Observable.Timer(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(15))
-                      .ObserveOn(RxApp.TaskpoolScheduler)
-                      .TimeInterval()
+
+            int div = 1;
+            TimeSpan interval;
+            while(PollingFrequency / div > CutoffFrequency)
+            {
+                div++;
+            }
+            interval = TimeSpan.FromSeconds(div / PollingFrequency);
+
+            List<Double> frequencies = new();
+            int nm1 = 1;
+            int nm2 = 0;
+            int n = 0;
+            do
+            {
+                n = nm1 + nm2;
+                nm2 = nm1;
+                nm1 = n;
+                if(n <= PollingFrequency/2)
+                {
+                    frequencies.Add(n);
+                }
+            }
+            while (n <= PollingFrequency/4);
+
+            Log.Debug($"To achieve a polling rate of {PollingFrequency:0.0} Hz, using {PollingFrequency / div:0.0}Hz ~= {1000.0*div/PollingFrequency:0.0}ms with a multiplier of {div}");
+            Log.Information($"Frequencies: [{string.Join(", ", frequencies.Select(f => $"{f:0.0}"))}]");
+
+            Observable.Timer(interval, interval, RxApp.TaskpoolScheduler)
+                      .TimeInterval(RxApp.TaskpoolScheduler)
                       .Subscribe(iv =>
                       {
-                          t += iv.Interval.TotalSeconds;
+                          for (int i = 0; i < div; i++)
+                          {
+                              t += iv.Interval.TotalSeconds / div;
 
-                          double y = sqrWave(1, t) + sqrWave(25, t) + Math.Sin(2*Math.PI*t*15);
-                          incomingBuffer.Post($"{t}, {y}\r\n");
+                              double y = frequencies.Select(f => sinWave(f, t)).Sum();
+                              incomingBuffer.Post($"{t}, {y}\r\n");
+                          }
                       })
                       .DisposeWith(registration);
 

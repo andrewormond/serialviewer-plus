@@ -49,7 +49,7 @@ namespace SerialViewer_Plus.ViewModels
             return values.ToArray();
         }
 
-        public const int SampleWindow = 512;
+        public const int SampleWindow = 1024;
 
         public static int FindPreviousPowerOf2(int n)
         {

@@ -23,7 +23,7 @@
             <ToggleButton x:Name="pauseButton" Content="Pause" />
             <Label x:Name="upsGraphLabel" Content="Graph UPS: " />
         </DockPanel>
-        <lvc:CartesianChart x:Name="chart" Grid.Row="1" ></lvc:CartesianChart>
+        <lvc:CartesianChart x:Name="chart" Grid.Row="1" AnimationsSpeed="00:00:00.1000000" ></lvc:CartesianChart>
         <GridSplitter Grid.Row="2"/>
         <DockPanel Grid.Row="3" LastChildFill="False" >
             <Label Content="FFT Window Size:" />
