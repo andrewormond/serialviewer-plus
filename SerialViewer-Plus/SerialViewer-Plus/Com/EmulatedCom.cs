@@ -21,13 +21,13 @@ namespace SerialViewer_Plus.Com
         public EmulatedCom()
         {
             Random r = new Random();
-            Observable.Timer(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(50))
+            Observable.Timer(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(1))
                       .ObserveOn(RxApp.TaskpoolScheduler)
                       .TimeInterval()
                       .Subscribe(iv =>
                       {
                           t += iv.Interval.TotalSeconds;
-                          double y = Math.Sin(t) + Math.Sin(t*4);
+                          double y = Math.Sin(t) + Math.Sin(t * 4) + Math.Sin(t * 100);
                           incomingBuffer.Post($"{t}, {y}\r\n");
                       })
                       .DisposeWith(registration);

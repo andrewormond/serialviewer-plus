@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
@@ -42,7 +43,7 @@ namespace SerialViewer_Plus.ViewModels
             return values.ToArray();
         }
 
-        
+        public uint SampleWindow = 128;
 
         public TerminalViewModel()
         {
@@ -54,6 +55,15 @@ namespace SerialViewer_Plus.ViewModels
                 GeometrySize = 4,
             };
             Series.Add(s1);
+            var fftPoints = new ObservableCollection<ObservablePoint>();
+            FFTs.Add(new LineSeries<ObservablePoint>()
+            {
+                Values = fftPoints,
+                GeometrySize = 1,
+            });
+
+            DSPLib.FFT fft = new DSPLib.FFT();
+            fft.Initialize(SampleWindow);
             this.WhenActivated((CompositeDisposable registration) =>
             {
 
@@ -75,9 +85,22 @@ namespace SerialViewer_Plus.ViewModels
                 .Subscribe(p =>
                 {
                     points.Add(p);
-                    if(points.Count > 500)
+                    while(points.Count > SampleWindow)
                     {
                         points.RemoveAt(0);
+                    }
+                    if(points.Count == SampleWindow)
+                    {
+                        var sampleTime = (points[points.Count - 1].X - points[0].X) ?? 0.01;
+                        sampleTime /= points.Count;
+                        Complex[] cSpectrum = fft.Execute(points.Select(op => op.Y ?? 0.0).ToArray());
+                        double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
+                        double[] freqSpan = fft.FrequencySpan(1.0/sampleTime);
+                        fftPoints.Clear();
+                        for(int i = 0; i < lmSpectrum.Length; i++)
+                        {
+                            fftPoints.Add(new ObservablePoint(freqSpan[i], lmSpectrum[i]));
+                        }
                     }
                 })
                 .DisposeWith(registration);
