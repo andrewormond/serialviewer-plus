@@ -3,6 +3,7 @@ using SerialViewer_Plus.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -25,6 +26,19 @@ namespace SerialViewer_Plus
         public MainWindow()
         {
             InitializeComponent();
+
+            ViewModel = new();
+            DataContext = ViewModel;
+
+            this.WhenActivated((CompositeDisposable registration) =>
+            {
+                ViewModel.WhenAnyValue(vm => vm.Series)
+                         .Subscribe(series => chart.Series = series)
+                         .DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.FFTs)
+                         .Subscribe(series => fftView.Series = series)
+                         .DisposeWith(registration);
+            });
         }
     }
 }
