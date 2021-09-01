@@ -42,7 +42,7 @@ namespace SerialViewer_Plus
                          .Subscribe(series => fftView.Series = series)
                          .DisposeWith(registration);
 
-                ViewModel.WhenAnyValue(vm => vm.WindowSize)
+                ViewModel.WhenAnyValue(vm => vm.FftSize)
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(ws => fftWindowSizeLabel.Content = $"{ws}")
                          .DisposeWith(registration);
@@ -52,6 +52,30 @@ namespace SerialViewer_Plus
                          .DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.IsPaused, v => v.pauseButton.IsChecked).DisposeWith(registration);
+
+
+
+                this.Bind(ViewModel, vm => vm.BufferSize, v => v.bufferSizeBox.Text, bs => bs.ToString(), s =>
+                {
+                    if (int.TryParse(s, out int bs))
+                    {
+                        if (bs < 64)
+                        {
+                            bs = 64;
+                            //bufferSizeBox.Text = bs.ToString();
+                        }
+                        else if (bs > 5000)
+                        {
+                            bs = 5000;
+                            bufferSizeBox.Text = bs.ToString();
+                        }
+                        return bs;
+                    }
+                    else
+                    {
+                        return ViewModel.BufferSize;
+                    }
+                }).DisposeWith(registration);
 
                 this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
             });

@@ -22,6 +22,8 @@
             <Button x:Name="clearButton" Content="Clear" />
             <ToggleButton x:Name="pauseButton" Content="Pause" />
             <Label x:Name="upsGraphLabel" Content="Graph UPS: " />
+            <Label Content="Buffer Size: " />
+            <TextBox x:Name="bufferSizeBox" />
         </DockPanel>
         <lvc:CartesianChart x:Name="chart" Grid.Row="1" AnimationsSpeed="00:00:00.1000000" ></lvc:CartesianChart>
         <GridSplitter Grid.Row="2"/>

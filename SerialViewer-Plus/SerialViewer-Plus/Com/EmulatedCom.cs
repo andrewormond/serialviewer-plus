@@ -64,7 +64,7 @@ namespace SerialViewer_Plus.Com
                           {
                               t += iv.Interval.TotalSeconds / div;
 
-                              double y = frequencies.Select(f => sinWave(f, t)).Sum();
+                              double y = frequencies.Select(f => f*sinWave(f, t)).Sum();
                               incomingBuffer.Post($"{t}, {y}\r\n");
                           }
                       })

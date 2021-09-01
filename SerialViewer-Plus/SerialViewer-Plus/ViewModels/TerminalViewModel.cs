@@ -26,8 +26,11 @@ namespace SerialViewer_Plus.ViewModels
         public ViewModelActivator Activator { get; } = new();
         [Reactive] public ICom Com { get; set; }
 
-        [Reactive] public int WindowSize { get; set; }
+        [Reactive] public int FftSize { get; set; }
+        [Reactive] public int BufferSize { get; set; }
+        [Reactive] public int ViewPortSize { get; set; }
         [Reactive] public bool IsPaused { get; set; }
+
 
         public ReactiveCommand<Unit,Unit> ClearPointsCommand { get; init; }
         public ObservableCollection<ISeries> Series { get; set; } = new ObservableCollection<ISeries>();
@@ -48,8 +51,7 @@ namespace SerialViewer_Plus.ViewModels
 
             return values.ToArray();
         }
-
-        public const int SampleWindow = 1024;
+        
 
         public static int FindPreviousPowerOf2(int n)
         {
@@ -71,6 +73,7 @@ namespace SerialViewer_Plus.ViewModels
 
         public TerminalViewModel()
         {
+            BufferSize = 1024;
             Com = new EmulatedCom();
             var points = new ObservableCollection<ObservablePoint>();
             var s1 = new ScatterSeries<ObservablePoint>()
@@ -101,6 +104,18 @@ namespace SerialViewer_Plus.ViewModels
                           })
                           .DisposeWith(registration);
 
+                this.WhenAnyValue(vm => vm.BufferSize)
+                    .Throttle(TimeSpan.FromSeconds(1))
+                    .DistinctUntilChanged()
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(bs =>
+                    {
+                        while (points.Count > bs)
+                        {
+                            points.RemoveAt(0);
+                        }
+                    })
+                    .DisposeWith(registration);
 
                 Com.IncomingStream
                 .Where(_ => !IsPaused)
@@ -121,7 +136,7 @@ namespace SerialViewer_Plus.ViewModels
                 {
                     points.Add(p);
                     graphUpdateCount++;
-                    while(points.Count > SampleWindow)
+                    while(points.Count > BufferSize)
                     {
                         points.RemoveAt(0);
                     }
@@ -134,13 +149,13 @@ namespace SerialViewer_Plus.ViewModels
                 {
                     if (points.Count >= 16)//points.Count == SampleWindow)
                     {
-                        WindowSize = FindPreviousPowerOf2(points.Count);
+                        FftSize = FindPreviousPowerOf2(points.Count);
 
-                        fft.Initialize((uint)WindowSize);
+                        fft.Initialize((uint)FftSize);
 
-                        var sampleTime = (points[points.Count - 1].X - points[points.Count - WindowSize].X) ?? 0.01;
-                        sampleTime /= WindowSize;
-                        Complex[] cSpectrum = fft.Execute(points.Select(op => op.Y ?? 0.0).TakeLast(WindowSize).ToArray());
+                        var sampleTime = (points[points.Count - 1].X - points[points.Count - FftSize].X) ?? 0.01;
+                        sampleTime /= FftSize;
+                        Complex[] cSpectrum = fft.Execute(points.Select(op => op.Y ?? 0.0).TakeLast(FftSize).ToArray());
                         double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
                         double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
                         fftPoints.Clear();
