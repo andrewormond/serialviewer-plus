@@ -55,7 +55,10 @@ namespace SerialViewer_Plus
 
 
 
-                this.Bind(ViewModel, vm => vm.BufferSize, v => v.bufferSizeBox.Text, bs => bs.ToString(), s =>
+                this.Bind(ViewModel, 
+                          vm => vm.BufferSize, 
+                          v => v.bufferSizeBox.Text, 
+                          bs => bs.ToString(), s =>
                 {
                     if (int.TryParse(s, out int bs))
                     {

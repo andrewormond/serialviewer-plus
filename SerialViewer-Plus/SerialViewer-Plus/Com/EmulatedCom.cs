@@ -1,4 +1,5 @@
 ﻿using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -11,23 +12,42 @@ using System.Threading.Tasks.Dataflow;
 
 namespace SerialViewer_Plus.Com
 {
-    public class EmulatedCom : ICom
+    public class EmulatedCom : ReactiveObject, ICom
     {
         private readonly CompositeDisposable registration = new();
         private readonly BufferBlock<string> incomingBuffer = new();
 
         private double t = 0;
 
-        private const double SinMultiplier = 2 * Math.PI;
-
-        public double sinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
-        public double sqrWave(double frequency, double time) => (sinWave(frequency,time) >= 0) ? 1 : -1;
+        public static double SinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
+        public static double SqrWave(double frequency, double time) => (SinWave(frequency, time) >= 0) ? 1 : -1;
 
         public double PollingFrequency { get; init; } = 200;
         public const double CutoffFrequency = 50;
 
-        public EmulatedCom()
+        public enum EmulationType
         {
+            Emulated_NO_DATA = 0,
+            Emulated_Auto_Single_Series,
+            Emulated_Auto_XY_Series,
+            Emulated_Auto_Multi_series,
+            Emulated_Auto_Multi_series_with_x,
+            NumberOfEmulations
+        }
+
+        [Reactive] public EmulationType Emulation { get; set; }
+
+        public delegate string SignalHandler(double time);
+
+        private readonly Dictionary<EmulationType, SignalHandler> Handlers = new()
+        {
+            [EmulationType.Emulated_Auto_Single_Series] = (t) => $"{SqrWave(1, t):0.000000}",
+            [EmulationType.Emulated_Auto_Multi_series] = (t) => $"{SqrWave(1, t):0.000000}, {SinWave(1, t):0.000000}",
+        };
+
+        public EmulatedCom(EmulationType emulationType)
+        {
+            Emulation = emulationType;
 
             int div = 1;
             TimeSpan interval;
@@ -37,24 +57,8 @@ namespace SerialViewer_Plus.Com
             }
             interval = TimeSpan.FromSeconds(div / PollingFrequency);
 
-            List<Double> frequencies = new();
-            int nm1 = 1;
-            int nm2 = 0;
-            int n = 0;
-            do
-            {
-                n = nm1 + nm2;
-                nm2 = nm1;
-                nm1 = n;
-                if(n <= PollingFrequency/2)
-                {
-                    frequencies.Add(n);
-                }
-            }
-            while (n <= PollingFrequency/4);
-
+            
             Log.Debug($"To achieve a polling rate of {PollingFrequency:0.0} Hz, using {PollingFrequency / div:0.0}Hz ~= {1000.0*div/PollingFrequency:0.0}ms with a multiplier of {div}");
-            Log.Information($"Frequencies: [{string.Join(", ", frequencies.Select(f => $"{f:0.0}"))}]");
 
             Observable.Timer(interval, interval, RxApp.TaskpoolScheduler)
                       .TimeInterval(RxApp.TaskpoolScheduler)
@@ -64,8 +68,10 @@ namespace SerialViewer_Plus.Com
                           {
                               t += iv.Interval.TotalSeconds / div;
 
-                              double y = frequencies.Select(f => f*sinWave(f, t)).Sum();
-                              incomingBuffer.Post($"{t}, {y}\r\n");
+                              if (Handlers.ContainsKey(Emulation))
+                              {
+                                  incomingBuffer.Post(Handlers[Emulation]?.Invoke(t));
+                              }
                           }
                       })
                       .DisposeWith(registration);
