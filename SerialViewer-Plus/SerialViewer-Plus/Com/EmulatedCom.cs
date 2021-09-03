@@ -43,6 +43,7 @@ namespace SerialViewer_Plus.Com
         {
             [EmulationType.Emulated_Auto_Single_Series] = (t) => $"{SqrWave(1, t):0.000000}",
             [EmulationType.Emulated_Auto_Multi_series] = (t) => $"{SqrWave(1, t):0.000000}, {SinWave(1, t):0.000000}",
+            [EmulationType.Emulated_Auto_XY_Series] = (t) => $"({t},{SqrWave(1, t):0.000000})",
         };
 
         public EmulatedCom(EmulationType emulationType)
