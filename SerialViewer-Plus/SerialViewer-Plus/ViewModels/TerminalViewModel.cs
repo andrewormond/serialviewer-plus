@@ -6,6 +6,7 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using SerialViewer_Plus.Com;
+using SerialViewer_Plus.Models;
 using Serilog;
 using SkiaSharp;
 using System;
@@ -43,27 +44,53 @@ namespace SerialViewer_Plus.ViewModels
         public ObservableCollection<string> Logs = new();
 
         private static readonly Regex LineRegex = new("\\(?[\\+\\-]?\\d+\\.?\\d*\\)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        public static double[][] ParseAutoLine(string s)
+        public static AutoMessage[] ParseAutoLine(string line)
         {
-            Match[] matches = LineRegex.Matches(s).Where(m => m.Success).ToArray();
-            List<double[]> values = new();
-            for(int i = 0; i < matches.Length; i++)
+            double y;
+            line = line.Trim();
+            List<AutoMessage> values = new();
+            string[] entries = line.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            for(int i = 0; i < entries.Length; i++)
             {
-                string ms = matches[i].Value;
-                if(i < matches.Length - 1 && ms.StartsWith("(") && matches[i+1].Value.EndsWith(")"))
+                string s = entries[i];
+                if (s.StartsWith("("))
                 {
-                    if(double.TryParse(ms.Substring(1), out double x) && double.TryParse(matches[i + 1].Value[0..^1], out double y))
+                    if(double.TryParse(s[1..], out double x))
                     {
-                        values.Add(new double[] { x, y });
-                    }
-                    else
-                    {
-                        Log.Error($"Unable to parse: {ms} and {matches[i + 1].Value}");
+                        i++;
+                        while (i < entries.Length)
+                        {
+                            s = entries[i];
+                            if (s.EndsWith(")"))
+                            {
+                                if (s.Length > 1 && double.TryParse(s[..^1], out y))
+                                {
+                                    values.Add(new(x, y));
+                                }
+                                else if (s.Length != 1)
+                                {
+                                    Log.Error($"Unable to End ')' parse: \"{s}\" from \"{line}\"");
+                                }
+                                break;
+                            }else if(double.TryParse(s, out y))
+                            {
+                                values.Add(new(x, y));
+                            }
+                            else
+                            {
+                                Log.Error($"Unable to parse looping double: \"{s}\" from \"{line}\"");
+                            }
+                            i++;
+                        }
                     }
                 }
-                if(double.TryParse(ms, out double val))
+                else if(double.TryParse(s, out y))
                 {
-                    values.Add(new double[] { val });
+                    values.Add(new(y));
+                }
+                else
+                {
+                    Log.Error($"Unable to parse normal double: \"{s}\" from \"{line}\"");
                 }
             }
 
@@ -98,7 +125,7 @@ namespace SerialViewer_Plus.ViewModels
         };
 
         private int SampleCount = 0;
-        private void OnAutoValues(double[][] values)
+        private void OnAutoValues(AutoMessage[] values)
         {
             for(int i = 0; i < values.Length; i++)
             {
@@ -115,13 +142,13 @@ namespace SerialViewer_Plus.ViewModels
                 }
                 if(Series[i] is LineSeries<ObservablePoint> ls && ls.Values is ObservableCollection<ObservablePoint> points)
                 {
-                    if(values[i].Length == 1)
+                    if (values[i].ContainsX())
                     {
-                        points.Add(new(SampleCount, values[i][0]));
+                        points.Add(new(values[i].X, values[i].Y));
                     }
-                    else if(values[i].Length == 2)
+                    else
                     {
-                        points.Add(new(values[i][0], values[i][1]));
+                        points.Add(new(SampleCount, values[i].Y));
                     }
 
                     while (points.Count > BufferSize)
@@ -146,7 +173,7 @@ namespace SerialViewer_Plus.ViewModels
                 Values = fftPoints,
                 GeometrySize = 1,
             });
-            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_XY_Series);
+            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Mixed_Single_And_Pair);
 
 
 
@@ -198,7 +225,7 @@ namespace SerialViewer_Plus.ViewModels
                 .Select<string, object>(s =>
                 {
                     s = s.Trim();
-                    double[][] values = ParseAutoLine(s);
+                    AutoMessage[] values = ParseAutoLine(s);
                     if(values.Length > 0)
                     {
                         return values;
@@ -213,7 +240,7 @@ namespace SerialViewer_Plus.ViewModels
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Do(obj =>
                 {
-                    if(obj is double[][] autoValues)
+                    if(obj is AutoMessage[] autoValues)
                     {
                         OnAutoValues(autoValues);
                     }

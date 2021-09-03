@@ -31,7 +31,8 @@ namespace SerialViewer_Plus.Com
             Emulated_Auto_Single_Series,
             Emulated_Auto_XY_Series,
             Emulated_Auto_Multi_series,
-            Emulated_Auto_Multi_series_with_x,
+            Emulated_Auto_Multi_Series_With_Common_X,
+            Emulated_Auto_Mixed_Single_And_Pair, //This one doesn't make too much sense and probably should show a warning to the user
             NumberOfEmulations
         }
 
@@ -43,7 +44,9 @@ namespace SerialViewer_Plus.Com
         {
             [EmulationType.Emulated_Auto_Single_Series] = (t) => $"{SqrWave(1, t):0.000000}",
             [EmulationType.Emulated_Auto_Multi_series] = (t) => $"{SqrWave(1, t):0.000000}, {SinWave(1, t):0.000000}",
-            [EmulationType.Emulated_Auto_XY_Series] = (t) => $"({t},{SqrWave(1, t):0.000000})",
+            [EmulationType.Emulated_Auto_XY_Series] = (t) => $"({t},{SinWave(1, t):0.000000})",
+            [EmulationType.Emulated_Auto_Multi_Series_With_Common_X] = (t) => $"({t},{SinWave(1, t):0.000000}, {SqrWave(0.5,t):.00000}",
+            [EmulationType.Emulated_Auto_Mixed_Single_And_Pair] = (t) => $"({t},{SinWave(1, t):0.000000}), {SqrWave(0.5,t):.00000}",
         };
 
         public EmulatedCom(EmulationType emulationType)
