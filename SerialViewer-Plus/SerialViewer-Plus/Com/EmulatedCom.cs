@@ -7,14 +7,14 @@ using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace SerialViewer_Plus.Com
 {
-    public class EmulatedCom : ReactiveObject, ICom
+    public class EmulatedCom : BaseCom
     {
-        private readonly CompositeDisposable registration = new();
         private readonly BufferBlock<string> incomingBuffer = new();
 
         private double t = 0;
@@ -22,7 +22,7 @@ namespace SerialViewer_Plus.Com
         public static double SinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
         public static double SqrWave(double frequency, double time) => (SinWave(frequency, time) >= 0) ? 1 : -1;
 
-        public double PollingFrequency { get; init; } = 200;
+        public double PollingFrequency { get; init; } = 120;
         public const double CutoffFrequency = 50;
 
         public enum EmulationType
@@ -53,42 +53,83 @@ namespace SerialViewer_Plus.Com
         {
             Emulation = emulationType;
 
-            int div = 1;
-            TimeSpan interval;
-            while(PollingFrequency / div > CutoffFrequency)
-            {
-                div++;
-            }
-            interval = TimeSpan.FromSeconds(div / PollingFrequency);
+            //int div = 1;
+            //TimeSpan interval;
+            //while(PollingFrequency / div > CutoffFrequency)
+            //{
+            //    div++;
+            //}
+            //interval = TimeSpan.FromSeconds(div / PollingFrequency);
 
             
-            Log.Debug($"To achieve a polling rate of {PollingFrequency:0.0} Hz, using {PollingFrequency / div:0.0}Hz ~= {1000.0*div/PollingFrequency:0.0}ms with a multiplier of {div}");
+            //Log.Debug($"To achieve a polling rate of {PollingFrequency:0.0} Hz, using {PollingFrequency / div:0.0}Hz ~= {1000.0*div/PollingFrequency:0.0}ms with a multiplier of {div}");
 
-            Observable.Timer(interval, interval, RxApp.TaskpoolScheduler)
-                      .TimeInterval(RxApp.TaskpoolScheduler)
-                      .Subscribe(iv =>
-                      {
-                          for (int i = 0; i < div; i++)
-                          {
-                              t += iv.Interval.TotalSeconds / div;
+            //Observable.Timer(interval, interval, RxApp.TaskpoolScheduler)
+            //          .TimeInterval(RxApp.TaskpoolScheduler)
+            //          .Subscribe(iv =>
+            //          {
+            //              for (int i = 0; i < div; i++)
+            //              {
+            //                  t += iv.Interval.TotalSeconds / div;
 
-                              if (Handlers.ContainsKey(Emulation))
-                              {
-                                  incomingBuffer.Post(Handlers[Emulation]?.Invoke(t));
-                              }
-                          }
-                      })
-                      .DisposeWith(registration);
+            //                  if (Handlers.ContainsKey(Emulation))
+            //                  {
+            //                      incomingBuffer.Post(Handlers[Emulation]?.Invoke(t));
+            //                  }
+            //              }
+            //          })
+            //          .DisposeWith(registration);
 
         }
 
-        public IObservable<string> IncomingStream => incomingBuffer.AsObservable();
+        public override IObservable<string> IncomingStream => incomingBuffer.AsObservable();
 
-        public void Dispose() => registration.Dispose();
 
-        public bool Post(char c)
+        public override bool Post(char c)
         {
             throw new NotImplementedException();
+        }
+
+        protected Thread signalThread = null;
+
+        private void SignalLoop()
+        {
+            double t = 0;
+            double pollingInterval = Math.Max(1000 / PollingFrequency, 0);
+            pollingInterval -= 1;
+            while (true)
+            {
+                t += pollingInterval/1000.0;
+
+                if (Handlers.ContainsKey(Emulation))
+                {
+                    incomingBuffer.Post(Handlers[Emulation]?.Invoke(t));
+                }
+                Thread.Sleep((int) pollingInterval);
+            }
+        }
+
+
+
+
+        public override bool Open()
+        {
+            Close();
+            signalThread = new Thread(SignalLoop);
+            signalThread.Start();
+            return true;
+        }
+
+        public override bool Close()
+        {
+            if(signalThread != null)
+            {
+                signalThread.Interrupt();
+            }
+            signalThread = null;
+
+            IsOpen = false;
+            return true;
         }
     }
 }
