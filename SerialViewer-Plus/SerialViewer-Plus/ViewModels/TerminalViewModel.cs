@@ -29,7 +29,7 @@ namespace SerialViewer_Plus.ViewModels
     public class TerminalViewModel : ReactiveObject, IActivatableViewModel
     {
         public ViewModelActivator Activator { get; } = new();
-        [Reactive] public ICom Com { get; set; }
+        [Reactive] public BaseCom Com { get; set; }
 
         [Reactive] public int FftSize { get; set; }
         [Reactive] public int BufferSize { get; set; }
@@ -173,7 +173,7 @@ namespace SerialViewer_Plus.ViewModels
                 Values = fftPoints,
                 GeometrySize = 1,
             });
-            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Mixed_Single_And_Pair);
+            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
 
 
 
@@ -187,6 +187,7 @@ namespace SerialViewer_Plus.ViewModels
             DSPLib.FFT fft = new();
             this.WhenActivated((CompositeDisposable registration) =>
             {
+                Com.Open();
                 Observable.FromEventPattern<NotifyCollectionChangedEventHandler, NotifyCollectionChangedEventArgs>(handle => Logs.CollectionChanged += handle, handle => Logs.CollectionChanged -= handle)
                        .Select(pattern => pattern?.EventArgs)
                        .Where(args => args.Action == NotifyCollectionChangedAction.Add || args.Action == NotifyCollectionChangedAction.Replace)
