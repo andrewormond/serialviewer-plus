@@ -53,7 +53,7 @@ namespace SerialViewer_Plus
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => chart.Series = series)
                          .DisposeWith(registration);
-                ViewModel.WhenAnyValue(vm => vm.FFTs)
+                ViewModel.WhenAnyValue(vm => vm.FftSeries)
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => fftView.Series = series)
                          .DisposeWith(registration);
