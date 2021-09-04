@@ -23,6 +23,7 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace SerialViewer_Plus.ViewModels
 {
@@ -167,8 +168,8 @@ namespace SerialViewer_Plus.ViewModels
         public TerminalViewModel()
         {
             BufferSize = 512;
-            var fftPoints = new ObservableCollection<ObservablePoint>();
-            FFTs.Add(new LineSeries<ObservablePoint>()
+            var fftPoints = new ObservableCollection<Point>();
+            FFTs.Add(new LineSeries<Point>()
             {
                 Values = fftPoints,
                 GeometrySize = 1,
@@ -177,17 +178,14 @@ namespace SerialViewer_Plus.ViewModels
 
 
 
-            List<ObservableCollection<ObservablePoint>> points = new();
-            List<ISeries<ObservablePoint>> signalSeries = new();
 
-
-
-            ClearPointsCommand = ReactiveCommand.Create(() => points.Clear(), null, RxApp.MainThreadScheduler);
+            ClearPointsCommand = ReactiveCommand.Create(() => Series.Select(s => s.Values).Cast<ObservableCollection<Point>>().ToList().ForEach(ps => ps?.Clear()), null, RxApp.MainThreadScheduler);
 
             DSPLib.FFT fft = new();
             this.WhenActivated((CompositeDisposable registration) =>
             {
                 Com.Open();
+                Com.DisposeWith(registration);
                 Observable.FromEventPattern<NotifyCollectionChangedEventHandler, NotifyCollectionChangedEventArgs>(handle => Logs.CollectionChanged += handle, handle => Logs.CollectionChanged -= handle)
                        .Select(pattern => pattern?.EventArgs)
                        .Where(args => args.Action == NotifyCollectionChangedAction.Add || args.Action == NotifyCollectionChangedAction.Replace)
@@ -212,9 +210,12 @@ namespace SerialViewer_Plus.ViewModels
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(bs =>
                     {
-                        while (points.Count > bs)
+                        foreach (var points in Series.Select(s => s.Values as ObservableCollection<Point>).Where(ps => ps != null))
                         {
-                            points.RemoveAt(0);
+                            while (points.Count > bs)
+                            {
+                                points.RemoveAt(0);
+                            }
                         }
                     })
                     .DisposeWith(registration);
@@ -255,23 +256,23 @@ namespace SerialViewer_Plus.ViewModels
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(_ =>
                 {
-                    if (points.Count >= 16)//points.Count == SampleWindow)
-                    {
-                        FftSize = FindPreviousPowerOf2(points.Count);
+                    //if (points.Count >= 16)//points.Count == SampleWindow)
+                    //{
+                    //    FftSize = FindPreviousPowerOf2(points.Count);
 
-                        fft.Initialize((uint)FftSize);
+                    //    fft.Initialize((uint)FftSize);
 
-                        var sampleTime = (points[0][^1].X - points[0][^FftSize].X) ?? 0.01;
-                        sampleTime /= FftSize;
-                        Complex[] cSpectrum = fft.Execute(points[0].Select(op => op.Y ?? 0.0).TakeLast(FftSize).ToArray());
-                        double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
-                        double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
-                        fftPoints.Clear();
-                        for (int i = 0; i < lmSpectrum.Length; i++)
-                        {
-                            fftPoints.Add(new ObservablePoint(freqSpan[i], lmSpectrum[i]));
-                        }
-                    }
+                    //    var sampleTime = (points[0][^1].X - points[0][^FftSize].X) ?? 0.01;
+                    //    sampleTime /= FftSize;
+                    //    Complex[] cSpectrum = fft.Execute(points[0].Select(op => op.Y ?? 0.0).TakeLast(FftSize).ToArray());
+                    //    double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
+                    //    double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
+                    //    fftPoints.Clear();
+                    //    for (int i = 0; i < lmSpectrum.Length; i++)
+                    //    {
+                    //        fftPoints.Add(new Point(freqSpan[i], lmSpectrum[i]));
+                    //    }
+                    //}
                 })
                 .DisposeWith(registration);
             });

@@ -25,7 +25,7 @@
             <Label Content="Buffer Size: " />
             <TextBox x:Name="bufferSizeBox" />
         </DockPanel>
-        <lvc:CartesianChart x:Name="chart" Grid.Row="1" AnimationsSpeed="00:00:00" />
+        <lvc:CartesianChart x:Name="chart" Grid.Row="1" EasingFunction="{x:Null}" IsManipulationEnabled="True" MouseDown="chart_MouseDown" />
         <GridSplitter Grid.Row="2"/>
         <DockPanel Grid.Row="3" LastChildFill="False" >
             <Label Content="FFT Window Size:" />

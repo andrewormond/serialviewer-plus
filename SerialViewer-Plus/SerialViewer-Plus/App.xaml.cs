@@ -1,4 +1,5 @@
-﻿using Serilog;
+﻿using LiveChartsCore;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -23,6 +24,7 @@ namespace SerialViewer_Plus
                 .CreateLogger();
 
             Log.Information($"Started at {DateTime.Now}");
+
         }
     }
 }

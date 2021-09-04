@@ -1,5 +1,8 @@
-﻿using ReactiveUI;
+﻿using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView.WPF;
+using ReactiveUI;
 using SerialViewer_Plus.ViewModels;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,11 +31,24 @@ namespace SerialViewer_Plus
         {
             InitializeComponent();
 
+
+
+            LiveCharts.Configure(config =>
+                config
+                    .HasMap<Point>((p, point) =>
+                    {
+                        // use the city Population property as the primary value
+                        point.PrimaryValue = p.Y;
+                        // and the index of the city in our cities array as the secondary value
+                        point.SecondaryValue = p.X;
+                    }));
+
             ViewModel = new();
             DataContext = ViewModel;
 
             this.WhenActivated((CompositeDisposable registration) =>
             {
+                chart.UpdaterThrottler = TimeSpan.FromMilliseconds(1000/30);
                 ViewModel.WhenAnyValue(vm => vm.Series)
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => chart.Series = series)
@@ -82,6 +98,24 @@ namespace SerialViewer_Plus
 
                 this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
             });
+        }
+
+        private void chart_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if(sender is CartesianChart chart)
+            {
+                Log.Information("Right click");
+                foreach (var xaxis in chart.XAxes)
+                {
+                    xaxis.MinLimit = null;
+                    xaxis.MaxLimit = null;
+                }
+                foreach (var yaxis in chart.YAxes)
+                {
+                    yaxis.MinLimit = null;
+                    yaxis.MaxLimit = null;
+                }
+            }
         }
     }
 }

@@ -17,7 +17,6 @@ namespace SerialViewer_Plus.Com
     {
         private readonly BufferBlock<string> incomingBuffer = new();
 
-        private double t = 0;
 
         public static double SinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
         public static double SqrWave(double frequency, double time) => (SinWave(frequency, time) >= 0) ? 1 : -1;
@@ -85,6 +84,12 @@ namespace SerialViewer_Plus.Com
         public override IObservable<string> IncomingStream => incomingBuffer.AsObservable();
 
 
+        public override void Dispose()
+        {
+            base.Dispose();
+            Close();
+        }
+
         public override bool Post(char c)
         {
             throw new NotImplementedException();
@@ -94,18 +99,25 @@ namespace SerialViewer_Plus.Com
 
         private void SignalLoop()
         {
-            double t = 0;
-            double pollingInterval = Math.Max(1000 / PollingFrequency, 0);
-            pollingInterval -= 1;
-            while (true)
+            try
             {
-                t += pollingInterval/1000.0;
-
-                if (Handlers.ContainsKey(Emulation))
+                double t = 0;
+                double pollingInterval = Math.Max(1000 / PollingFrequency, 0);
+                pollingInterval -= 1;
+                while (true)
                 {
-                    incomingBuffer.Post(Handlers[Emulation]?.Invoke(t));
+                    t += pollingInterval / 1000.0;
+
+                    if (Handlers.ContainsKey(Emulation))
+                    {
+                        incomingBuffer.Post(Handlers[Emulation]?.Invoke(t));
+                    }
+                    Thread.Sleep((int)pollingInterval);
                 }
-                Thread.Sleep((int) pollingInterval);
+            }
+            catch (ThreadInterruptedException)
+            {
+                
             }
         }
 
