@@ -67,48 +67,6 @@ namespace SerialViewer_Plus.ViewModels
 
         }
 
-
-        //private void UpdateFFTs()
-        //{
-        //    DSPLib.FFT fft = new();
-        //    var targetSeries = Series.Select(s => s as LineSeries<ObservablePoint>).Where(ls => ls != null).ToArray();
-        //    for (int i = 0; i < targetSeries.Length; i++)
-        //    {
-        //        var ls = targetSeries[i];
-        //        if (i <= Series.Count)
-        //        {
-        //            FftSeries.Add(new LineSeries<ObservablePoint>()
-        //            {
-        //                LineSmoothness = 0,
-        //                GeometryStroke = null,
-        //                GeometrySize = 2,
-        //                Values = new ObservableCollection<ObservablePoint>(),
-        //            });
-        //        }
-        //        if (FftSeries[i] is LineSeries<ObservablePoint> fs
-        //           && fs.Values is ObservableCollection<ObservablePoint> fPoints
-        //           && targetSeries[i].Values is ObservableCollection<ObservablePoint> sPoints
-        //           && sPoints.Count >= 16)
-        //        {
-        //            FftSize = FindNextPowerOf2(sPoints.Count);
-
-        //            fft.Initialize((uint)sPoints.Count, (uint)(FftSize - sPoints.Count));
-
-        //            var sampleTime = (sPoints[^1].X - sPoints[0].X) ?? 0.01;
-        //            sampleTime /= sPoints.Count;
-        //            Complex[] cSpectrum = fft.Execute(sPoints.Select(op => op.Y ?? 0.0).TakeLast(FftSize).ToArray());
-        //            double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
-        //            double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
-        //            fPoints.Clear();
-        //            for (int l = 0; l < lmSpectrum.Length; l++)
-        //            {
-        //                fPoints.Add(new ObservablePoint(freqSpan[l], lmSpectrum[l]));
-        //            }
-        //        }
-        //    }
-        //}
-
-
         [Reactive] private ObservablePoint[][] FftCalculations { get; set; }
 
         private int graphUpdateCount = 0;
@@ -118,7 +76,14 @@ namespace SerialViewer_Plus.ViewModels
             BufferSize = 512;
             Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
 
-            ClearPointsCommand = ReactiveCommand.Create(() => Series.Select(s => s.Values).Cast<ObservableCollection<ObservablePoint>>().ToList().ForEach(ps => ps?.Clear()), null, RxApp.MainThreadScheduler);
+            ClearPointsCommand = ReactiveCommand.Create(() =>
+            {
+                Series.Select(s => s.Values).Cast<ObservableCollection<ObservablePoint>>().ToList().ForEach(ps => ps?.Clear());
+                foreach(var ls in Series)
+                {
+
+                }    
+            }, null, RxApp.MainThreadScheduler);
 
             this.WhenActivated((CompositeDisposable registration) =>
             {
@@ -150,9 +115,9 @@ namespace SerialViewer_Plus.ViewModels
                     {
                         foreach (var points in Series.Select(s => s.Values as ObservableCollection<ObservablePoint>).Where(ps => ps != null))
                         {
-                            while (points.Count > bs)
+                            if(points.Count > bs)
                             {
-                                points.RemoveAt(0);
+                                points.RemoveMany(points.SkipLast(bs));
                             }
                         }
                     })
@@ -318,6 +283,7 @@ namespace SerialViewer_Plus.ViewModels
                         Fill = null,
                         GeometryStroke = null,
                         GeometrySize = 0,
+                        AnimationsSpeed = TimeSpan.Zero,
                         Values = new ObservableCollection<ObservablePoint>(),
                     });
                 }
@@ -332,9 +298,9 @@ namespace SerialViewer_Plus.ViewModels
                         points.Add(new(SampleCount, values[i].Y));
                     }
 
-                    while (points.Count > BufferSize)
+                    if (points.Count > BufferSize)
                     {
-                        points.RemoveAt(0);
+                        points.RemoveMany(points.SkipLast(BufferSize));
                     }
                 }
                 else
