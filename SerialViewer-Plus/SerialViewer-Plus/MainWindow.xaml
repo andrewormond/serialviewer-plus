@@ -31,6 +31,7 @@
             <CheckBox x:Name="enableFFTCheckbox" Content="Enable FFT" IsChecked="True" VerticalAlignment="Center" />
             <Label Content="FFT Window Size:" />
             <Label x:Name="fftWindowSizeLabel" />
+            <ComboBox x:Name="fftSizeCombo" />
         </DockPanel>
         <lvc:CartesianChart x:Name="fftView" Grid.Row="4"></lvc:CartesianChart>
     </Grid>

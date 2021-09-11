@@ -18,7 +18,6 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
-using System.Windows;
 
 namespace SerialViewer_Plus.ViewModels
 {
@@ -26,6 +25,7 @@ namespace SerialViewer_Plus.ViewModels
     {
         public ObservableCollection<string> Logs = new();
         private static readonly Regex LineRegex = new("\\(?[\\+\\-]?\\d+\\.?\\d*\\)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         private readonly SKColor[] SeriesColors = new SKColor[]
         {
             SKColors.AliceBlue,
@@ -34,57 +34,27 @@ namespace SerialViewer_Plus.ViewModels
             SKColors.Magenta
         };
 
-        [Reactive] public bool EnableFft { get; set; }
-
-        private void UpdateFFTs()
-        {
-            DSPLib.FFT fft = new();
-            var seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
-                                     .ToArray()
-                                     .Where(ls => ls != null)
-                                     .Select(ls => ls.Values as ObservableCollection<ObservablePoint>)
-                                     .Where(ps => ps != null)
-                                     .ToArray();
-            FftCalculations = seriesPoints.Select(sPoints =>
-            {
-                if(sPoints.Count > 4)
-                {
-                    FftSize = FindNextPowerOf2(sPoints.Count);
-
-                    fft.Initialize((uint)sPoints.Count, (uint)(FftSize - sPoints.Count));
-
-                    var sampleTime = (sPoints[^1].X - sPoints[0].X) ?? 0.01;
-                    sampleTime /= sPoints.Count;
-                    Complex[] cSpectrum = fft.Execute(sPoints.Select(op => op.Y ?? 0.0).TakeLast(FftSize).ToArray());
-                    double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
-                    double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
-
-                    return freqSpan.Zip(lmSpectrum, (f, l) => new ObservablePoint(f, l)).ToArray();
-                }
-                else
-                {
-                    return Array.Empty<ObservablePoint>();
-                }
-            }).ToArray();
-
-        }
-
-        [Reactive] private ObservablePoint[][] FftCalculations { get; set; }
-
         private int graphUpdateCount = 0;
         private int SampleCount = 0;
+
+        public ObservableCollection<int> FftSizeOptions { get; } = new()
+        {
+            16, 32, 64, 128, 256, 512, 1024
+        };
+
         public TerminalViewModel()
         {
+            FftSize = 256;
             BufferSize = 512;
+            EnableFft = true;
             Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
 
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
                 Series.Select(s => s.Values).Cast<ObservableCollection<ObservablePoint>>().ToList().ForEach(ps => ps?.Clear());
-                foreach(var ls in Series)
+                foreach (var ls in Series)
                 {
-
-                }    
+                }
             }, null, RxApp.MainThreadScheduler);
 
             this.WhenActivated((CompositeDisposable registration) =>
@@ -117,7 +87,7 @@ namespace SerialViewer_Plus.ViewModels
                     {
                         foreach (var points in Series.Select(s => s.Values as ObservableCollection<ObservablePoint>).Where(ps => ps != null))
                         {
-                            if(points.Count > bs)
+                            if (points.Count > bs)
                             {
                                 points.RemoveMany(points.SkipLast(bs));
                             }
@@ -158,6 +128,7 @@ namespace SerialViewer_Plus.ViewModels
                 Com.IncomingStream
                     .Where(_ => !IsPaused && EnableFft)
                     .Sample(TimeSpan.FromSeconds(1.0))
+                    .Merge(this.WhenAnyValue(vm => vm.FftSize).Select(_ => ""))
                     .ObserveOn(RxApp.TaskpoolScheduler)
                     .Subscribe(_ => UpdateFFTs())
                     .DisposeWith(registration);
@@ -169,7 +140,7 @@ namespace SerialViewer_Plus.ViewModels
                     {
                         for (int i = 0; i < calculation.Length; i++)
                         {
-                            if (i <= FftSeries.Count)
+                            if (i >= FftSeries.Count)
                             {
                                 FftSeries.Add(new LineSeries<ObservablePoint>()
                                 {
@@ -187,7 +158,6 @@ namespace SerialViewer_Plus.ViewModels
                                 fPoints.AddRange(calculation[i]);
                             }
                         }
-
                     })
                     .DisposeWith(registration);
             });
@@ -197,13 +167,22 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public int BufferSize { get; set; }
         public ReactiveCommand<Unit, Unit> ClearPointsCommand { get; init; }
         [Reactive] public BaseCom Com { get; set; }
+        [Reactive] public bool EnableFft { get; set; }
 
         public ObservableCollection<LineSeries<ObservablePoint>> FftSeries { get; set; } = new();
+
         [Reactive] public int FftSize { get; set; }
+
         [Reactive] public double GraphUPS { get; set; }
+
         [Reactive] public bool IsPaused { get; set; }
+
         public ObservableCollection<ISeries> Series { get; } = new ObservableCollection<ISeries>();
+
         [Reactive] public int ViewPortSize { get; set; }
+
+        [Reactive] private ObservablePoint[][] FftCalculations { get; set; }
+
         public static int FindNextPowerOf2(int n)
         {
             // initialize result by 1
@@ -273,6 +252,7 @@ namespace SerialViewer_Plus.ViewModels
 
             return values.ToArray();
         }
+
         private void OnAutoValues(AutoMessage[] values)
         {
             for (int i = 0; i < values.Length; i++)
@@ -312,6 +292,39 @@ namespace SerialViewer_Plus.ViewModels
                 }
             }
             SampleCount++;
+        }
+
+        private void UpdateFFTs()
+        {
+            var seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
+                                     .ToArray()
+                                     .Where(ls => ls != null)
+                                     .Select(ls => ls.Values as ObservableCollection<ObservablePoint>)
+                                     .Where(ps => ps != null)
+                                     .ToArray();
+            FftCalculations = seriesPoints.Select(sPoints =>
+            {
+                if (sPoints.Count > 4)
+                {
+                    DSPLib.FFT fft = new();
+                    uint sampleSize = sPoints.Count <= FftSize ? (uint)sPoints.Count : (uint)FftSize;
+
+                    fft.Initialize(sampleSize, (uint)Math.Max(0, (FftSize - sPoints.Count)));
+
+                    var sampleTime = (sPoints[^1].X - sPoints[0].X) ?? 0.01;
+                    sampleTime /= sPoints.Count;
+                    var parray = sPoints.Select(op => op.Y ?? 0.0).TakeLast((int)sampleSize - 1).ToArray();
+                    Complex[] cSpectrum = fft.Execute(parray);
+                    double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
+                    double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
+
+                    return freqSpan.Zip(lmSpectrum, (f, l) => new ObservablePoint(f, l)).ToArray();
+                }
+                else
+                {
+                    return Array.Empty<ObservablePoint>();
+                }
+            }).ToArray();
         }
     }
 }

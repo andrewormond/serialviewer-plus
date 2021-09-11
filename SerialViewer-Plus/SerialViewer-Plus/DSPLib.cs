@@ -393,7 +393,7 @@ namespace DSPLib
             // Copy data into linked complex number objects
             FFTElement x = mX[0];
             UInt32 k = 0;
-            for (UInt32 i = 0; i < mN; i++)
+            for (UInt32 i = 0; i < mN && i < timeSeries.Length; i++)
             {
                 x.re = timeSeries[k];
                 x.im = 0.0;

@@ -48,7 +48,7 @@ namespace SerialViewer_Plus
 
             this.WhenActivated((CompositeDisposable registration) =>
             {
-                chart.UpdaterThrottler = TimeSpan.FromMilliseconds(1000/30);
+                chart.UpdaterThrottler = TimeSpan.FromMilliseconds(1000/60);
                 ViewModel.WhenAnyValue(vm => vm.Series)
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => chart.Series = series)
@@ -72,6 +72,13 @@ namespace SerialViewer_Plus
                 this.Bind(ViewModel, vm => vm.EnableFft, v => v.enableFFTCheckbox.IsChecked).DisposeWith(registration);
                 this.OneWayBind(ViewModel, vm => vm.EnableFft, v => v.fftView.Visibility, b => b ? Visibility.Visible : Visibility.Collapsed).DisposeWith(registration);
                 this.OneWayBind(ViewModel, vm => vm.EnableFft, v => v.fftRow.Height, b => b ? new GridLength(1, GridUnitType.Star) : GridLength.Auto).DisposeWith(registration);
+
+                this.WhenAnyValue(v => v.ViewModel)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(vm => fftSizeCombo.ItemsSource = vm.FftSizeOptions)
+                    .DisposeWith(registration);
+
+                this.Bind(ViewModel, vm => vm.FftSize, v => v.fftSizeCombo.SelectedItem).DisposeWith(registration);
 
                 this.Bind(ViewModel, 
                           vm => vm.BufferSize, 
