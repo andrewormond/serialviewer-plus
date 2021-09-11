@@ -34,6 +34,8 @@ namespace SerialViewer_Plus.ViewModels
             SKColors.Magenta
         };
 
+        [Reactive] public bool EnableFft { get; set; }
+
         private void UpdateFFTs()
         {
             DSPLib.FFT fft = new();
@@ -153,9 +155,8 @@ namespace SerialViewer_Plus.ViewModels
                     graphUpdateCount++;
                 }).DisposeWith(registration);
 
-
                 Com.IncomingStream
-                    .Where(_ => !IsPaused)
+                    .Where(_ => !IsPaused && EnableFft)
                     .Sample(TimeSpan.FromSeconds(1.0))
                     .ObserveOn(RxApp.TaskpoolScheduler)
                     .Subscribe(_ => UpdateFFTs())
@@ -177,6 +178,7 @@ namespace SerialViewer_Plus.ViewModels
                                     GeometrySize = 2,
                                     Values = new ObservableCollection<ObservablePoint>(),
                                 });
+                                Log.Information("Created a new line series for FFT");
                             }
                             if (FftSeries[i] is LineSeries<ObservablePoint> fs
                                && fs.Values is ObservableCollection<ObservablePoint> fPoints)
@@ -200,7 +202,7 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public int FftSize { get; set; }
         [Reactive] public double GraphUPS { get; set; }
         [Reactive] public bool IsPaused { get; set; }
-        public ObservableCollection<ISeries> Series { get; set; } = new ObservableCollection<ISeries>();
+        public ObservableCollection<ISeries> Series { get; } = new ObservableCollection<ISeries>();
         [Reactive] public int ViewPortSize { get; set; }
         public static int FindNextPowerOf2(int n)
         {
@@ -275,7 +277,7 @@ namespace SerialViewer_Plus.ViewModels
         {
             for (int i = 0; i < values.Length; i++)
             {
-                if (i <= Series.Count)
+                if (i >= Series.Count)
                 {
                     Series.Add(new LineSeries<ObservablePoint>()
                     {
@@ -286,6 +288,7 @@ namespace SerialViewer_Plus.ViewModels
                         AnimationsSpeed = TimeSpan.Zero,
                         Values = new ObservableCollection<ObservablePoint>(),
                     });
+                    Log.Information("Created a new Series for AutoValue: " + i);
                 }
                 if (Series[i] is LineSeries<ObservablePoint> ls && ls.Values is ObservableCollection<ObservablePoint> points)
                 {

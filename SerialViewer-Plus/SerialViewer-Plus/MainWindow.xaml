@@ -16,7 +16,7 @@
             <RowDefinition/>
             <RowDefinition Height="10"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition/>
+            <RowDefinition x:Name="fftRow"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" LastChildFill="False" >
             <Button x:Name="clearButton" Content="Clear" />
@@ -28,6 +28,7 @@
         <lvc:CartesianChart x:Name="chart" Grid.Row="1" EasingFunction="{x:Null}" IsManipulationEnabled="True" MouseDown="chart_MouseDown" />
         <GridSplitter Grid.Row="2"/>
         <DockPanel Grid.Row="3" LastChildFill="False" >
+            <CheckBox x:Name="enableFFTCheckbox" Content="Enable FFT" IsChecked="True" VerticalAlignment="Center" />
             <Label Content="FFT Window Size:" />
             <Label x:Name="fftWindowSizeLabel" />
         </DockPanel>

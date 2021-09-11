@@ -69,7 +69,9 @@ namespace SerialViewer_Plus
 
                 this.Bind(ViewModel, vm => vm.IsPaused, v => v.pauseButton.IsChecked).DisposeWith(registration);
 
-
+                this.Bind(ViewModel, vm => vm.EnableFft, v => v.enableFFTCheckbox.IsChecked).DisposeWith(registration);
+                this.OneWayBind(ViewModel, vm => vm.EnableFft, v => v.fftView.Visibility, b => b ? Visibility.Visible : Visibility.Collapsed).DisposeWith(registration);
+                this.OneWayBind(ViewModel, vm => vm.EnableFft, v => v.fftRow.Height, b => b ? new GridLength(1, GridUnitType.Star) : GridLength.Auto).DisposeWith(registration);
 
                 this.Bind(ViewModel, 
                           vm => vm.BufferSize, 

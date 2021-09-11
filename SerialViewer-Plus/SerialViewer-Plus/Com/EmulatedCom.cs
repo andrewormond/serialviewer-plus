@@ -21,7 +21,7 @@ namespace SerialViewer_Plus.Com
         public static double SinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
         public static double SqrWave(double frequency, double time) => (SinWave(frequency, time) >= 0) ? 1 : -1;
 
-        public double PollingFrequency { get; init; } = 200;
+        public double PollingFrequency { get; init; } = 500;
         public const double CutoffFrequency = 50;
 
         public enum EmulationType
