@@ -1,7 +1,9 @@
 ﻿using DynamicData;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Kernel;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using SerialViewer_Plus.Com;
@@ -18,6 +20,7 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
+using System.Windows;
 
 namespace SerialViewer_Plus.ViewModels
 {
@@ -28,7 +31,7 @@ namespace SerialViewer_Plus.ViewModels
 
         private readonly SKColor[] SeriesColors = new SKColor[]
         {
-            SKColors.AliceBlue,
+            SKColors.Blue,
             SKColors.Crimson,
             SKColors.Green,
             SKColors.Magenta
@@ -42,10 +45,35 @@ namespace SerialViewer_Plus.ViewModels
             16, 32, 64, 128, 256, 512, 1024
         };
 
+        [Reactive] public float LineThickness { get; set; }
+        [Reactive] public float MarkerDiameter { get; set; }
+
+        [Reactive] public bool ZoomPause { get; set; }
+
+        [Reactive] public Rect? LastSelection { get; set; }
+
+        public void OnSectionSelected(Rect rect)
+        {
+            ZoomPause = true;
+            LastSelection = rect;
+        }
+        
+
+        public void OnSelectionReset()
+        {
+            Log.Information($"Section reset");
+            ZoomPause = false;
+            LastSelection = null;
+        }
+
+        public Interaction<Unit, Unit> RequestAxisReset { get; } = new();
+
         public TerminalViewModel()
         {
+            LineThickness = 1;
+            MarkerDiameter = 2;
             FftSize = 256;
-            BufferSize = 512;
+            BufferSize = 1000;
             EnableFft = true;
             Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
 
@@ -95,9 +123,14 @@ namespace SerialViewer_Plus.ViewModels
                     })
                     .DisposeWith(registration);
 
+                this.WhenAnyValue(vm => vm.LastSelection)
+                    .ObserveOn(RxApp.TaskpoolScheduler)
+                    .Subscribe(_ => UpdateFFTs())
+                    .DisposeWith(registration);
+
                 var startTime = DateTime.Now;
                 Com.IncomingStream
-                .Where(_ => !IsPaused)
+                .Where(_ => !IsPaused && !ZoomPause)
                 .ObserveOn(RxApp.TaskpoolScheduler)
                 .Select<string, object>(s =>
                 {
@@ -126,12 +159,31 @@ namespace SerialViewer_Plus.ViewModels
                 }).DisposeWith(registration);
 
                 Com.IncomingStream
-                    .Where(_ => !IsPaused && EnableFft)
+                    .Where(_ => !IsPaused && EnableFft && !ZoomPause)
                     .Sample(TimeSpan.FromSeconds(1.0))
                     .Merge(this.WhenAnyValue(vm => vm.FftSize).Select(_ => ""))
                     .ObserveOn(RxApp.TaskpoolScheduler)
                     .Subscribe(_ => UpdateFFTs())
                     .DisposeWith(registration);
+
+                this.WhenAnyValue(vm => vm.IsPaused)
+                    .DistinctUntilChanged()
+                    .Where(ip => ip == false)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        ZoomPause = false;
+                        RequestAxisReset.Handle(Unit.Default).Wait();
+                        Log.Information("Requested reset");
+                    })
+                    .DisposeWith(registration);
+
+                this.WhenAnyValue(vm => vm.ZoomPause)
+                    .DistinctUntilChanged()
+                    .Where(zp => zp == true)
+                    .Subscribe(b => IsPaused = true)
+                    .DisposeWith(registration);
+
 
                 this.WhenAnyValue(vm => vm.FftCalculations)
                     .Where(calculations => calculations != null)
@@ -145,8 +197,11 @@ namespace SerialViewer_Plus.ViewModels
                                 FftSeries.Add(new LineSeries<ObservablePoint>()
                                 {
                                     LineSmoothness = 0,
-                                    GeometryStroke = null,
-                                    GeometrySize = 2,
+                                    Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
+                                    //GeometryStroke = null,
+                                    TooltipLabelFormatter = FormatTooltipFFT,
+                                    GeometryFill = new SolidColorPaint(SeriesColors[i]),
+                                    GeometrySize = MarkerDiameter,
                                     Values = new ObservableCollection<ObservablePoint>(),
                                 });
                                 Log.Information("Created a new line series for FFT");
@@ -160,6 +215,21 @@ namespace SerialViewer_Plus.ViewModels
                         }
                     })
                     .DisposeWith(registration);
+
+                this.WhenAnyValue(vm => vm.LineThickness, vm => vm.MarkerDiameter)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(dim =>
+                    {
+                        foreach(LineSeries<ObservablePoint> ls in Series.Concat(FftSeries).Where(s => s is LineSeries<ObservablePoint>))
+                        {
+                            ls.GeometrySize = dim.Item2;
+                            if(ls.Stroke is SolidColorPaint scp)
+                            {
+                                scp.StrokeThickness = dim.Item1;
+                            }
+                        }
+                    })
+                    .DisposeWith(registration);
             });
         }
 
@@ -169,7 +239,8 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public BaseCom Com { get; set; }
         [Reactive] public bool EnableFft { get; set; }
 
-        public ObservableCollection<LineSeries<ObservablePoint>> FftSeries { get; set; } = new();
+        public ObservableCollection<LineSeries<ObservablePoint>> FftSeries { get; } = new();
+        public ObservableCollection<RectangularSection> Sections { get; } = new();
 
         [Reactive] public int FftSize { get; set; }
 
@@ -253,6 +324,16 @@ namespace SerialViewer_Plus.ViewModels
             return values.ToArray();
         }
 
+        private static string FormatTooltip(ChartPoint cp)
+        {
+            return $"{cp.Context.Series.Name}: ({Math.Round(cp.SecondaryValue, 3)}, {Math.Round(cp.PrimaryValue, 3)})";
+        }
+
+        private static string FormatTooltipFFT(ChartPoint cp)
+        {
+            return $"{cp.Context.Series.Name}: ({Math.Round(cp.SecondaryValue, 3)} Hz, {Math.Round(cp.PrimaryValue, 3)})";
+        }
+
         private void OnAutoValues(AutoMessage[] values)
         {
             for (int i = 0; i < values.Length; i++)
@@ -262,11 +343,13 @@ namespace SerialViewer_Plus.ViewModels
                     Series.Add(new LineSeries<ObservablePoint>()
                     {
                         LineSmoothness = 0,
+                        GeometryFill = new SolidColorPaint(SeriesColors[i]),
                         Fill = null,
-                        GeometryStroke = null,
-                        GeometrySize = 0,
+                        Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
+                        GeometrySize = MarkerDiameter,
                         AnimationsSpeed = TimeSpan.Zero,
                         Values = new ObservableCollection<ObservablePoint>(),
+                        TooltipLabelFormatter = FormatTooltip,
                     });
                     Log.Information("Created a new Series for AutoValue: " + i);
                 }
@@ -296,23 +379,30 @@ namespace SerialViewer_Plus.ViewModels
 
         private void UpdateFFTs()
         {
-            var seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
+            ObservablePoint[][] seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
                                      .ToArray()
                                      .Where(ls => ls != null)
-                                     .Select(ls => ls.Values as ObservableCollection<ObservablePoint>)
+                                     .Select(ls => ls.Values.ToArray().Where(p =>
+                                     {
+                                         return LastSelection.HasValue 
+                                                ? p.X >= LastSelection.Value.Left && p.X <= LastSelection.Value.Right
+                                                : true;
+
+                                     }).ToArray())
                                      .Where(ps => ps != null)
                                      .ToArray();
+
             FftCalculations = seriesPoints.Select(sPoints =>
             {
-                if (sPoints.Count > 4)
+                if (sPoints.Length > 4)
                 {
                     DSPLib.FFT fft = new();
-                    uint sampleSize = sPoints.Count <= FftSize ? (uint)sPoints.Count : (uint)FftSize;
+                    uint sampleSize = sPoints.Length <= FftSize ? (uint)sPoints.Length : (uint)FftSize;
 
-                    fft.Initialize(sampleSize, (uint)Math.Max(0, (FftSize - sPoints.Count)));
+                    fft.Initialize(sampleSize, (uint)Math.Max(0, (FftSize - sPoints.Length)));
 
                     var sampleTime = (sPoints[^1].X - sPoints[0].X) ?? 0.01;
-                    sampleTime /= sPoints.Count;
+                    sampleTime /= sPoints.Length;
                     var parray = sPoints.Select(op => op.Y ?? 0.0).TakeLast((int)sampleSize - 1).ToArray();
                     Complex[] cSpectrum = fft.Execute(parray);
                     double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);

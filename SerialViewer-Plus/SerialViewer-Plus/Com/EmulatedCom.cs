@@ -21,7 +21,7 @@ namespace SerialViewer_Plus.Com
         public static double SinWave(double frequency, double time) => Math.Sin(2 * Math.PI * frequency * time);
         public static double SqrWave(double frequency, double time) => (SinWave(frequency, time) >= 0) ? 1 : -1;
 
-        public double PollingFrequency { get; init; } = 120;
+        public double PollingFrequency { get; init; } = 200;
 
         public enum EmulationType
         {
@@ -30,7 +30,8 @@ namespace SerialViewer_Plus.Com
             Emulated_Auto_XY_Series,
             Emulated_Auto_Multi_series,
             Emulated_Auto_Multi_Series_With_Common_X,
-            Emulated_Auto_Mixed_Single_And_Pair, //This one doesn't make too much sense and probably should show a warning to the user
+            Emulated_Auto_Mixed_Single_And_Pair, //This one doesn't make too much sense and probably should show a warning to the usere
+            Emulated_Periodic_Pulse,
             NumberOfEmulations
         }
 
@@ -45,6 +46,11 @@ namespace SerialViewer_Plus.Com
             [EmulationType.Emulated_Auto_XY_Series] = (t) => $"({t},{SinWave(1, t):0.000000})",
             [EmulationType.Emulated_Auto_Multi_Series_With_Common_X] = (t) => $"({t},{SinWave(10, t):0.000000}, {SqrWave(25,t):.00000}",
             [EmulationType.Emulated_Auto_Mixed_Single_And_Pair] = (t) => $"({t},{SinWave(1, t):0.000000}), {SqrWave(0.5,t):.00000}",
+            [EmulationType.Emulated_Periodic_Pulse] = (t) => 
+                    {
+                        double val = Math.Abs(SinWave(0.5, t)) < 0.1 ? 1 : 0;
+                        return $"({t},{val:0.000000})";
+                    },
         };
 
         public EmulatedCom(EmulationType emulationType)

@@ -1,4 +1,7 @@
 ﻿using LiveChartsCore;
+using LiveChartsCore.Kernel.Sketches;
+using LiveChartsCore.Measure;
+using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.WPF;
 using ReactiveUI;
 using SerialViewer_Plus.ViewModels;
@@ -6,6 +9,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
@@ -19,6 +23,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using static SerialViewer_Plus.Views.ViewportCartesianChart;
 
 namespace SerialViewer_Plus
 {
@@ -57,6 +62,10 @@ namespace SerialViewer_Plus
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => fftView.Series = series)
                          .DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.Sections)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(sects => chart.Sections = sects)
+                         .DisposeWith(registration);
 
                 ViewModel.WhenAnyValue(vm => vm.FftSize)
                          .ObserveOn(RxApp.MainThreadScheduler)
@@ -68,6 +77,7 @@ namespace SerialViewer_Plus
                          .DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.IsPaused, v => v.pauseButton.IsChecked).DisposeWith(registration);
+                this.OneWayBind(ViewModel, vm => vm.IsPaused, v => v.chart.TooltipPosition, ip => ip ? TooltipPosition.Top : TooltipPosition.Hidden).DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.EnableFft, v => v.enableFFTCheckbox.IsChecked).DisposeWith(registration);
                 this.OneWayBind(ViewModel, vm => vm.EnableFft, v => v.fftView.Visibility, b => b ? Visibility.Visible : Visibility.Collapsed).DisposeWith(registration);
@@ -79,6 +89,8 @@ namespace SerialViewer_Plus
                     .DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.FftSize, v => v.fftSizeCombo.SelectedItem).DisposeWith(registration);
+                this.Bind(ViewModel, vm => vm.LineThickness, v => v.lineWidthBox.Text).DisposeWith(registration);
+                this.Bind(ViewModel, vm => vm.MarkerDiameter, v => v.markerSizeBox.Text).DisposeWith(registration);
 
                 this.Bind(ViewModel, 
                           vm => vm.BufferSize, 
@@ -105,26 +117,27 @@ namespace SerialViewer_Plus
                     }
                 }).DisposeWith(registration);
 
-                this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
-            });
-        }
+                this.OneWayBind(ViewModel, vm => vm.BufferSize, v => v.horzPosSlider.Maximum).DisposeWith(registration);
 
-        private void chart_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if(sender is CartesianChart chart)
-            {
-                Log.Information("Right click");
-                foreach (var xaxis in chart.XAxes)
+                this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
+
+                Observable.FromEvent<SelectionHandler, Rect>(handler => chart.OnSelection += handler, handler => chart.OnSelection -= handler)
+                          .ObserveOn(RxApp.MainThreadScheduler)
+                          .Subscribe(sect => ViewModel.OnSectionSelected(sect))
+                          .DisposeWith(registration);
+
+                Observable.FromEvent(handler => chart.OnSelectionReset += handler, handler => chart.OnSelectionReset -= handler)
+                          .ObserveOn(RxApp.MainThreadScheduler)
+                          .Subscribe(_ => ViewModel.OnSelectionReset())
+                          .DisposeWith(registration);
+
+                ViewModel.RequestAxisReset.RegisterHandler(ctx =>
                 {
-                    xaxis.MinLimit = null;
-                    xaxis.MaxLimit = null;
-                }
-                foreach (var yaxis in chart.YAxes)
-                {
-                    yaxis.MinLimit = null;
-                    yaxis.MaxLimit = null;
-                }
-            }
+                    chart.ResetAxis();
+                    ctx.SetOutput(Unit.Default);
+                }).DisposeWith(registration);
+
+            });
         }
     }
 }
