@@ -1,7 +1,9 @@
 ﻿using DynamicData;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Kernel;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using SerialViewer_Plus.Com;
@@ -28,7 +30,7 @@ namespace SerialViewer_Plus.ViewModels
 
         private readonly SKColor[] SeriesColors = new SKColor[]
         {
-            SKColors.AliceBlue,
+            SKColors.Blue,
             SKColors.Crimson,
             SKColors.Green,
             SKColors.Magenta
@@ -42,8 +44,13 @@ namespace SerialViewer_Plus.ViewModels
             16, 32, 64, 128, 256, 512, 1024
         };
 
+        [Reactive] public float LineThickness { get; set; }
+        [Reactive] public float MarkerDiameter { get; set; }
+
         public TerminalViewModel()
         {
+            LineThickness = 1;
+            MarkerDiameter = 2;
             FftSize = 256;
             BufferSize = 512;
             EnableFft = true;
@@ -145,8 +152,11 @@ namespace SerialViewer_Plus.ViewModels
                                 FftSeries.Add(new LineSeries<ObservablePoint>()
                                 {
                                     LineSmoothness = 0,
-                                    GeometryStroke = null,
-                                    GeometrySize = 2,
+                                    Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
+                                    //GeometryStroke = null,
+                                    TooltipLabelFormatter = FormatTooltipFFT,
+                                    GeometryFill = new SolidColorPaint(SeriesColors[i]),
+                                    GeometrySize = MarkerDiameter,
                                     Values = new ObservableCollection<ObservablePoint>(),
                                 });
                                 Log.Information("Created a new line series for FFT");
@@ -156,6 +166,21 @@ namespace SerialViewer_Plus.ViewModels
                             {
                                 fPoints.Clear();
                                 fPoints.AddRange(calculation[i]);
+                            }
+                        }
+                    })
+                    .DisposeWith(registration);
+
+                this.WhenAnyValue(vm => vm.LineThickness, vm => vm.MarkerDiameter)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(dim =>
+                    {
+                        foreach(LineSeries<ObservablePoint> ls in Series.Concat(FftSeries).Where(s => s is LineSeries<ObservablePoint>))
+                        {
+                            ls.GeometrySize = dim.Item2;
+                            if(ls.Stroke is SolidColorPaint scp)
+                            {
+                                scp.StrokeThickness = dim.Item1;
                             }
                         }
                     })
@@ -253,6 +278,16 @@ namespace SerialViewer_Plus.ViewModels
             return values.ToArray();
         }
 
+        private static string FormatTooltip(ChartPoint cp)
+        {
+            return $"{cp.Context.Series.Name}: ({Math.Round(cp.SecondaryValue, 3)}, {Math.Round(cp.PrimaryValue, 3)})";
+        }
+
+        private static string FormatTooltipFFT(ChartPoint cp)
+        {
+            return $"{cp.Context.Series.Name}: ({Math.Round(cp.SecondaryValue, 3)} Hz, {Math.Round(cp.PrimaryValue, 3)})";
+        }
+
         private void OnAutoValues(AutoMessage[] values)
         {
             for (int i = 0; i < values.Length; i++)
@@ -262,11 +297,13 @@ namespace SerialViewer_Plus.ViewModels
                     Series.Add(new LineSeries<ObservablePoint>()
                     {
                         LineSmoothness = 0,
+                        GeometryFill = new SolidColorPaint(SeriesColors[i]),
                         Fill = null,
-                        GeometryStroke = null,
-                        GeometrySize = 0,
+                        Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
+                        GeometrySize = MarkerDiameter,
                         AnimationsSpeed = TimeSpan.Zero,
                         Values = new ObservableCollection<ObservablePoint>(),
+                        TooltipLabelFormatter = FormatTooltip,
                     });
                     Log.Information("Created a new Series for AutoValue: " + i);
                 }

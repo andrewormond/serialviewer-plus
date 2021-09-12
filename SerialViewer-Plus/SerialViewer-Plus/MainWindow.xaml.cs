@@ -79,6 +79,8 @@ namespace SerialViewer_Plus
                     .DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.FftSize, v => v.fftSizeCombo.SelectedItem).DisposeWith(registration);
+                this.Bind(ViewModel, vm => vm.LineThickness, v => v.lineWidthBox.Text).DisposeWith(registration);
+                this.Bind(ViewModel, vm => vm.MarkerDiameter, v => v.markerSizeBox.Text).DisposeWith(registration);
 
                 this.Bind(ViewModel, 
                           vm => vm.BufferSize, 

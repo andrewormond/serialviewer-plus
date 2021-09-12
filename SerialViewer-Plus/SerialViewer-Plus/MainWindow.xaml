@@ -17,6 +17,8 @@
             <RowDefinition Height="10"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition x:Name="fftRow"/>
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" LastChildFill="False" >
             <Button x:Name="clearButton" Content="Clear" />
@@ -32,7 +34,11 @@
             <Label Content="FFT Window Size:" />
             <Label x:Name="fftWindowSizeLabel" />
             <ComboBox x:Name="fftSizeCombo" />
+            <Label Content="Marker Size: "/>
+            <TextBox x:Name="markerSizeBox"  MinWidth="25" />
+            <Label Content="Line Width: "/>
+            <TextBox x:Name="lineWidthBox"  MinWidth="25" />
         </DockPanel>
-        <lvc:CartesianChart x:Name="fftView" Grid.Row="4"></lvc:CartesianChart>
+        <lvc:CartesianChart x:Name="fftView" Grid.Row="4" AnimationsSpeed="00:00:01"></lvc:CartesianChart>
     </Grid>
 </reactiveui:ReactiveWindow>
