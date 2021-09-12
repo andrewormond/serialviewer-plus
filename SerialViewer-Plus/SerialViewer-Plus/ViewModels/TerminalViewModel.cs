@@ -80,9 +80,6 @@ namespace SerialViewer_Plus.ViewModels
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
                 Series.Select(s => s.Values).Cast<ObservableCollection<ObservablePoint>>().ToList().ForEach(ps => ps?.Clear());
-                foreach (var ls in Series)
-                {
-                }
             }, null, RxApp.MainThreadScheduler);
 
             this.WhenActivated((CompositeDisposable registration) =>
@@ -343,7 +340,6 @@ namespace SerialViewer_Plus.ViewModels
                     PlotSeries ser = new PlotSeries()
                     {
                         LineSmoothness = 0,
-                        GeometryFill = new SolidColorPaint(SeriesColors[i]),
                         Fill = null,
                         Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
                         GeometrySize = MarkerDiameter,
@@ -365,25 +361,23 @@ namespace SerialViewer_Plus.ViewModels
                         });
 
 
-                    ser.WhenAnyValue(ser => ser.Stroke)
-                        .ObserveOn(RxApp.MainThreadScheduler)
-                        .Subscribe(stroke =>
-                        {
-                            if (index < FftSeries.Count)
-                            {
-                                FftSeries[index].Stroke = stroke.CloneTask();
-                            }
-                        });
+                    //ser.WhenAnyValue(ser => ser.Stroke)
+                    //    .ObserveOn(RxApp.MainThreadScheduler)
+                    //    .Subscribe(stroke =>
+                    //    {
+                    //        if (index < FftSeries.Count)
+                    //        {
+                    //            FftSeries[index].Stroke = stroke.CloneTask();
+                    //        }
+                    //    });
 
-                    ser.WhenAnyValue(ser => ser.GeometryFill)
-                        .ObserveOn(RxApp.MainThreadScheduler)
-                        .Subscribe(fill =>
+                    ser.PaintHasChanged += () =>
+                    {
+                        if (index < FftSeries.Count)
                         {
-                            if (index < FftSeries.Count)
-                            {
-                                FftSeries[index].GeometryFill = fill.CloneTask();
-                            }
-                        });
+                            FftSeries[index].Stroke = ser.Stroke.CloneTask();
+                        }
+                    };
 
                     ser.WhenAnyValue(ser => ser.IsVisible)
                         .ObserveOn(RxApp.MainThreadScheduler)

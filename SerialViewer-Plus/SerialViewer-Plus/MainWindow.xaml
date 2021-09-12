@@ -3,13 +3,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:SerialViewer_Plus.Models"
+        xmlns:tools="http://propertytools.org/wpf"
         x:TypeArguments="viewmodels:TerminalViewModel"
         xmlns:local="clr-namespace:SerialViewer_Plus"
         xmlns:reactiveui="http://reactiveui.net"
         xmlns:viewmodels="clr-namespace:SerialViewer_Plus.ViewModels"
-        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF" xmlns:views="clr-namespace:SerialViewer_Plus.Views"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF" xmlns:views="clr-namespace:SerialViewer_Plus.Views" xmlns:Converters="clr-namespace:SerialViewer_Plus.Converters"
                             mc:Ignorable="d"
         Title="MainWindow" Height="600" Width="800">
+    <Window.Resources>
+        <Converters:SkiaMediaColorConverter x:Key="colorConverter" />
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -27,7 +32,7 @@
             <Label Content="Buffer Size: " />
             <TextBox x:Name="bufferSizeBox" />
         </DockPanel>
-        <views:ViewportCartesianChart x:Name="chart" EasingFunction="{x:Null}" LegendPosition="Hidden" Grid.Row="1" />
+        <views:ViewportCartesianChart x:Name="chart" EasingFunction="{x:Null}" Grid.Row="1" />
         <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch"/>
         <DockPanel Grid.Row="3" LastChildFill="False" >
             <CheckBox x:Name="enableFFTCheckbox" Content="Enable FFT" IsChecked="True" VerticalAlignment="Center" />
@@ -46,6 +51,13 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Series Name" Binding="{Binding Name}" />
                     <DataGridCheckBoxColumn Header="Visible" Binding="{Binding IsVisible, UpdateSourceTrigger=PropertyChanged}"/>
+                    <DataGridTemplateColumn Header="Stroke" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate DataType="{x:Type models:PlotSeries}">
+                                <tools:ColorPicker SelectedColor="{Binding Stroke, Converter={StaticResource colorConverter}, UpdateSourceTrigger=PropertyChanged}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </GroupBox>
