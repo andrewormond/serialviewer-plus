@@ -1,5 +1,6 @@
 ﻿using LiveChartsCore;
 using LiveChartsCore.Kernel.Sketches;
+using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.WPF;
 using ReactiveUI;
@@ -8,6 +9,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
@@ -75,6 +77,7 @@ namespace SerialViewer_Plus
                          .DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.IsPaused, v => v.pauseButton.IsChecked).DisposeWith(registration);
+                this.OneWayBind(ViewModel, vm => vm.IsPaused, v => v.chart.TooltipPosition, ip => ip ? TooltipPosition.Top : TooltipPosition.Hidden).DisposeWith(registration);
 
                 this.Bind(ViewModel, vm => vm.EnableFft, v => v.enableFFTCheckbox.IsChecked).DisposeWith(registration);
                 this.OneWayBind(ViewModel, vm => vm.EnableFft, v => v.fftView.Visibility, b => b ? Visibility.Visible : Visibility.Collapsed).DisposeWith(registration);
@@ -117,42 +120,24 @@ namespace SerialViewer_Plus
                 this.OneWayBind(ViewModel, vm => vm.BufferSize, v => v.horzPosSlider.Maximum).DisposeWith(registration);
 
                 this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
-                ViewModel.WhenAnyValue(vm => vm.MinXLimit, vm => vm.MaxXLimit)
-                         .ObserveOn(RxApp.MainThreadScheduler)
-                         .Subscribe(limits =>
-                         {
-                             IAxis axis = chart.XAxes.First();
-                             axis.MinLimit = limits.Item1;
-                             axis.MaxLimit = limits.Item2;
-                         })
-                         .DisposeWith(registration);
 
-                ViewModel.WhenAnyValue(vm => vm.MinYLimit, vm => vm.MaxYLimit)
-                         .ObserveOn(RxApp.MainThreadScheduler)
-                         .Subscribe(limits =>
-                         {
-                             IAxis axis = chart.YAxes.First();
-                             axis.MinLimit = limits.Item1;
-                             axis.MaxLimit = limits.Item2;
-                         })
-                         .DisposeWith(registration);
-
-                Observable.FromEvent<SelectionHandler, RectangularSection>(handler => chart.OnSelection += handler, handler => chart.OnSelection -= handler)
+                Observable.FromEvent<SelectionHandler, Rect>(handler => chart.OnSelection += handler, handler => chart.OnSelection -= handler)
                           .ObserveOn(RxApp.MainThreadScheduler)
                           .Subscribe(sect => ViewModel.OnSectionSelected(sect))
                           .DisposeWith(registration);
 
+                Observable.FromEvent(handler => chart.OnSelectionReset += handler, handler => chart.OnSelectionReset -= handler)
+                          .ObserveOn(RxApp.MainThreadScheduler)
+                          .Subscribe(_ => ViewModel.OnSelectionReset())
+                          .DisposeWith(registration);
+
+                ViewModel.RequestAxisReset.RegisterHandler(ctx =>
+                {
+                    chart.ResetAxis();
+                    ctx.SetOutput(Unit.Default);
+                }).DisposeWith(registration);
+
             });
-        }
-
-
-        private void chart_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
-        {
-
-            if (sender is CartesianChart chart)
-            {
-                ViewModel?.OnSelectionReset();
-            }
         }
     }
 }

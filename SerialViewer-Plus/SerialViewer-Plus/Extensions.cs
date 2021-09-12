@@ -29,6 +29,13 @@ namespace SerialViewer_Plus
             return chart.GetDataPosition(e.GetPosition(chart));
         }
         
+        public static void ForEach<T>(this IEnumerable<T> en, Action<T> handler)
+        {
+            foreach(T t in en)
+            {
+                handler?.Invoke(t);
+            }
+        }
 
         public static string PrettyPrint(this Point p) => $"({p.X:0.00}, {p.Y:0.00})";
     }

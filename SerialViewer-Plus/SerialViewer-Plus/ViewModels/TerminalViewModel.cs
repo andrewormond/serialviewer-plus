@@ -48,48 +48,34 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public float LineThickness { get; set; }
         [Reactive] public float MarkerDiameter { get; set; }
 
-        [Reactive] public double? MinXLimit { get; set; }
-        [Reactive] public double? MaxXLimit { get; set; }
-
-        [Reactive] public double? MinYLimit { get; set; }
-        [Reactive] public double? MaxYLimit { get; set; }
         [Reactive] public bool ZoomPause { get; set; }
-        public void OnSectionSelected(RectangularSection sect)
-        {
-            if(sect.Xi != sect.Xj && sect.Yi != sect.Yj)
-            {
-                MaxXLimit = Math.Max(sect.Xi.Value, sect.Xj.Value);
-                MinXLimit = Math.Min(sect.Xi.Value, sect.Xj.Value);
-                MaxYLimit = Math.Max(sect.Yi.Value, sect.Yj.Value);
-                MinYLimit = Math.Min(sect.Yi.Value, sect.Yj.Value);
-                Log.Information($"Selection is: X:({MinXLimit}->{MaxXLimit}), Y:({MinYLimit}->{MaxYLimit}");
-                ZoomPause = true;
-            }
-        }
 
-        public void ResetAxis()
+        [Reactive] public Rect? LastSelection { get; set; }
+
+        public void OnSectionSelected(Rect rect)
         {
-            MaxXLimit = null;
-            MaxYLimit = null;
-            MinXLimit = null;
-            MinYLimit = null;
+            ZoomPause = true;
+            LastSelection = rect;
         }
+        
 
         public void OnSelectionReset()
         {
             Log.Information($"Section reset");
-            ResetAxis();
             ZoomPause = false;
+            LastSelection = null;
         }
+
+        public Interaction<Unit, Unit> RequestAxisReset { get; } = new();
 
         public TerminalViewModel()
         {
             LineThickness = 1;
             MarkerDiameter = 2;
             FftSize = 256;
-            BufferSize = 512;
+            BufferSize = 1000;
             EnableFft = true;
-            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Periodic_Pulse);
+            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
 
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
@@ -137,6 +123,11 @@ namespace SerialViewer_Plus.ViewModels
                     })
                     .DisposeWith(registration);
 
+                this.WhenAnyValue(vm => vm.LastSelection)
+                    .ObserveOn(RxApp.TaskpoolScheduler)
+                    .Subscribe(_ => UpdateFFTs())
+                    .DisposeWith(registration);
+
                 var startTime = DateTime.Now;
                 Com.IncomingStream
                 .Where(_ => !IsPaused && !ZoomPause)
@@ -178,10 +169,12 @@ namespace SerialViewer_Plus.ViewModels
                 this.WhenAnyValue(vm => vm.IsPaused)
                     .DistinctUntilChanged()
                     .Where(ip => ip == false)
+                    .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
                         ZoomPause = false;
-                        ResetAxis();
+                        RequestAxisReset.Handle(Unit.Default).Wait();
+                        Log.Information("Requested reset");
                     })
                     .DisposeWith(registration);
 
@@ -386,23 +379,30 @@ namespace SerialViewer_Plus.ViewModels
 
         private void UpdateFFTs()
         {
-            var seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
+            ObservablePoint[][] seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
                                      .ToArray()
                                      .Where(ls => ls != null)
-                                     .Select(ls => ls.Values as ObservableCollection<ObservablePoint>)
+                                     .Select(ls => ls.Values.ToArray().Where(p =>
+                                     {
+                                         return LastSelection.HasValue 
+                                                ? p.X >= LastSelection.Value.Left && p.X <= LastSelection.Value.Right
+                                                : true;
+
+                                     }).ToArray())
                                      .Where(ps => ps != null)
                                      .ToArray();
+
             FftCalculations = seriesPoints.Select(sPoints =>
             {
-                if (sPoints.Count > 4)
+                if (sPoints.Length > 4)
                 {
                     DSPLib.FFT fft = new();
-                    uint sampleSize = sPoints.Count <= FftSize ? (uint)sPoints.Count : (uint)FftSize;
+                    uint sampleSize = sPoints.Length <= FftSize ? (uint)sPoints.Length : (uint)FftSize;
 
-                    fft.Initialize(sampleSize, (uint)Math.Max(0, (FftSize - sPoints.Count)));
+                    fft.Initialize(sampleSize, (uint)Math.Max(0, (FftSize - sPoints.Length)));
 
                     var sampleTime = (sPoints[^1].X - sPoints[0].X) ?? 0.01;
-                    sampleTime /= sPoints.Count;
+                    sampleTime /= sPoints.Length;
                     var parray = sPoints.Select(op => op.Y ?? 0.0).TakeLast((int)sampleSize - 1).ToArray();
                     Complex[] cSpectrum = fft.Execute(parray);
                     double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);

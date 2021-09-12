@@ -36,7 +36,7 @@
                 <RowDefinition/>
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <views:ViewportCartesianChart x:Name="chart" EasingFunction="{x:Null}" LegendPosition="Hidden" TooltipFontSize="10" MouseRightButtonDown="chart_MouseRightButtonDown" />
+            <views:ViewportCartesianChart x:Name="chart" EasingFunction="{x:Null}" LegendPosition="Hidden" TooltipFontSize="10" />
             <Slider x:Name="horzPosSlider" Grid.Row="1" FlowDirection="RightToLeft" />
             <Slider x:Name="vertPosSlider" Grid.Column="1" Orientation="Vertical" />
         </Grid>
@@ -51,6 +51,6 @@
             <Label Content="Line Width: "/>
             <TextBox x:Name="lineWidthBox"  MinWidth="25" />
         </DockPanel>
-        <views:ViewportCartesianChart x:Name="fftView" Grid.Row="4" AnimationsSpeed="00:00:01"></views:ViewportCartesianChart>
+        <views:ViewportCartesianChart x:Name="fftView" Grid.Row="4" AnimationsSpeed="00:00:00.5"></views:ViewportCartesianChart>
     </Grid>
 </reactiveui:ReactiveWindow>
