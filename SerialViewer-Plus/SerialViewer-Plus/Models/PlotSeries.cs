@@ -1,7 +1,10 @@
 ﻿using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using ReactiveUI;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,6 +37,26 @@ namespace SerialViewer_Plus.Models
                 
                 PaintHasChanged?.Invoke();
             }
+        }
+
+        private const string KEY_NAME = "Name";
+        private const string KEY_COLOR = "Color";
+
+        public JObject ToJObject()
+        {
+            return new JObject()
+            {
+                [KEY_NAME] = Name,
+                [KEY_COLOR] = (Stroke as SolidColorPaint)?.Color.ToJObject(),
+            };
+        }
+
+
+        public void FromJObject(JObject jobj)
+        {
+            Name = jobj.Value<string>(KEY_NAME);
+            SKColor color = jobj.Value<JObject>(KEY_COLOR).ToSKColor();
+            Stroke = new SolidColorPaint(color);
         }
 
         public event Action PaintHasChanged;

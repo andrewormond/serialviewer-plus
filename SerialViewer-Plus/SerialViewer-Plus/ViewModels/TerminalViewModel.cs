@@ -4,6 +4,7 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.Kernel;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
+using Newtonsoft.Json.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using SerialViewer_Plus.Com;
@@ -359,17 +360,6 @@ namespace SerialViewer_Plus.ViewModels
                                 FftSeries[index].Name = name;
                             }
                         });
-
-
-                    //ser.WhenAnyValue(ser => ser.Stroke)
-                    //    .ObserveOn(RxApp.MainThreadScheduler)
-                    //    .Subscribe(stroke =>
-                    //    {
-                    //        if (index < FftSeries.Count)
-                    //        {
-                    //            FftSeries[index].Stroke = stroke.CloneTask();
-                    //        }
-                    //    });
 
                     ser.PaintHasChanged += () =>
                     {
