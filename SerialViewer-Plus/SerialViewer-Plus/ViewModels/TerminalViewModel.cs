@@ -4,6 +4,7 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.Kernel;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
+using Newtonsoft.Json.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using SerialViewer_Plus.Com;
@@ -73,16 +74,13 @@ namespace SerialViewer_Plus.ViewModels
             LineThickness = 1;
             MarkerDiameter = 2;
             FftSize = 256;
-            BufferSize = 1000;
+            BufferSize = 525;
             EnableFft = true;
             Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
 
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
                 Series.Select(s => s.Values).Cast<ObservableCollection<ObservablePoint>>().ToList().ForEach(ps => ps?.Clear());
-                foreach (var ls in Series)
-                {
-                }
             }, null, RxApp.MainThreadScheduler);
 
             this.WhenActivated((CompositeDisposable registration) =>
@@ -194,7 +192,7 @@ namespace SerialViewer_Plus.ViewModels
                         {
                             if (i >= FftSeries.Count)
                             {
-                                FftSeries.Add(new LineSeries<ObservablePoint>()
+                                FftSeries.Add(new PlotSeries()
                                 {
                                     LineSmoothness = 0,
                                     Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
@@ -206,7 +204,7 @@ namespace SerialViewer_Plus.ViewModels
                                 });
                                 Log.Information("Created a new line series for FFT");
                             }
-                            if (FftSeries[i] is LineSeries<ObservablePoint> fs
+                            if (FftSeries[i] is PlotSeries fs
                                && fs.Values is ObservableCollection<ObservablePoint> fPoints)
                             {
                                 fPoints.Clear();
@@ -220,7 +218,7 @@ namespace SerialViewer_Plus.ViewModels
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(dim =>
                     {
-                        foreach(LineSeries<ObservablePoint> ls in Series.Concat(FftSeries).Where(s => s is LineSeries<ObservablePoint>))
+                        foreach(PlotSeries ls in Series.Concat(FftSeries).Where(s => s is PlotSeries))
                         {
                             ls.GeometrySize = dim.Item2;
                             if(ls.Stroke is SolidColorPaint scp)
@@ -239,7 +237,7 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public BaseCom Com { get; set; }
         [Reactive] public bool EnableFft { get; set; }
 
-        public ObservableCollection<LineSeries<ObservablePoint>> FftSeries { get; } = new();
+        public ObservableCollection<PlotSeries> FftSeries { get; } = new();
         public ObservableCollection<RectangularSection> Sections { get; } = new();
 
         [Reactive] public int FftSize { get; set; }
@@ -340,20 +338,50 @@ namespace SerialViewer_Plus.ViewModels
             {
                 if (i >= Series.Count)
                 {
-                    Series.Add(new LineSeries<ObservablePoint>()
+                    PlotSeries ser = new PlotSeries()
                     {
                         LineSmoothness = 0,
-                        GeometryFill = new SolidColorPaint(SeriesColors[i]),
                         Fill = null,
                         Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
                         GeometrySize = MarkerDiameter,
                         AnimationsSpeed = TimeSpan.Zero,
                         Values = new ObservableCollection<ObservablePoint>(),
                         TooltipLabelFormatter = FormatTooltip,
-                    });
+                    };
+                    Series.Add(ser);
+                    int index = i;
+
+                    ser.WhenAnyValue(ser => ser.Name)
+                        .ObserveOn(RxApp.MainThreadScheduler)
+                        .Subscribe(name =>
+                        {
+                            if (index < FftSeries.Count)
+                            {
+                                FftSeries[index].Name = name;
+                            }
+                        });
+
+                    ser.PaintHasChanged += () =>
+                    {
+                        if (index < FftSeries.Count)
+                        {
+                            FftSeries[index].Stroke = ser.Stroke.CloneTask();
+                        }
+                    };
+
+                    ser.WhenAnyValue(ser => ser.IsVisible)
+                        .ObserveOn(RxApp.MainThreadScheduler)
+                        .Subscribe(isVisible =>
+                        {
+                            if (index < FftSeries.Count)
+                            {
+                                FftSeries[index].IsVisible = isVisible;
+                            }
+                        });
+
                     Log.Information("Created a new Series for AutoValue: " + i);
                 }
-                if (Series[i] is LineSeries<ObservablePoint> ls && ls.Values is ObservableCollection<ObservablePoint> points)
+                if (Series[i] is PlotSeries ls && ls.Values is ObservableCollection<ObservablePoint> points)
                 {
                     if (values[i].ContainsX())
                     {
@@ -379,7 +407,7 @@ namespace SerialViewer_Plus.ViewModels
 
         private void UpdateFFTs()
         {
-            ObservablePoint[][] seriesPoints = Series.Select(s => s as LineSeries<ObservablePoint>)
+            ObservablePoint[][] seriesPoints = Series.Select(s => s as PlotSeries)
                                      .ToArray()
                                      .Where(ls => ls != null)
                                      .Select(ls => ls.Values.ToArray().Where(p =>

@@ -56,7 +56,11 @@ namespace SerialViewer_Plus
                 chart.UpdaterThrottler = TimeSpan.FromMilliseconds(1000/60);
                 ViewModel.WhenAnyValue(vm => vm.Series)
                          .ObserveOn(RxApp.MainThreadScheduler)
-                         .Subscribe(series => chart.Series = series)
+                         .Subscribe(series =>
+                         {
+                             chart.Series = series;
+                             seriesDetailsControl.ItemsSource = series;
+                         })
                          .DisposeWith(registration);
                 ViewModel.WhenAnyValue(vm => vm.FftSeries)
                          .ObserveOn(RxApp.MainThreadScheduler)
@@ -117,7 +121,6 @@ namespace SerialViewer_Plus
                     }
                 }).DisposeWith(registration);
 
-                this.OneWayBind(ViewModel, vm => vm.BufferSize, v => v.horzPosSlider.Maximum).DisposeWith(registration);
 
                 this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
 
