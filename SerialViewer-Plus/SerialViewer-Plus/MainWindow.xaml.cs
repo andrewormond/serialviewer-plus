@@ -1,5 +1,6 @@
 ﻿using LiveChartsCore;
 using LiveChartsCore.Kernel.Sketches;
+using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.WPF;
 using ReactiveUI;
 using SerialViewer_Plus.ViewModels;
@@ -20,6 +21,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using static SerialViewer_Plus.Views.ViewportCartesianChart;
 
 namespace SerialViewer_Plus
 {
@@ -135,34 +137,14 @@ namespace SerialViewer_Plus
                          })
                          .DisposeWith(registration);
 
+                Observable.FromEvent<SelectionHandler, RectangularSection>(handler => chart.OnSelection += handler, handler => chart.OnSelection -= handler)
+                          .ObserveOn(RxApp.MainThreadScheduler)
+                          .Subscribe(sect => ViewModel.OnSectionSelected(sect))
+                          .DisposeWith(registration);
+
             });
         }
 
-
-        private void chart_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if(sender is CartesianChart chart)
-            {
-                ViewModel?.OnSelectionStart(chart.GetDataPosition(e));
-            }
-        }
-
-        private void chart_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is CartesianChart chart)
-            {
-                ViewModel?.OnSelectionComplete(chart.GetDataPosition(e));
-            }
-        }
-
-        private void chart_MouseMove(object sender, MouseEventArgs e)
-        {
-
-            if (sender is CartesianChart chart)
-            {
-                ViewModel?.OnSelectionChange(chart.GetDataPosition(e));
-            }
-        }
 
         private void chart_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -171,11 +153,6 @@ namespace SerialViewer_Plus
             {
                 ViewModel?.OnSelectionReset();
             }
-        }
-
-        private void chart_MouseLeave(object sender, MouseEventArgs e)
-        {
-            ViewModel?.OnSelectionCancel();
         }
     }
 }

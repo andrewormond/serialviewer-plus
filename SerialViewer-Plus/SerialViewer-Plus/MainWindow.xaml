@@ -7,8 +7,8 @@
         xmlns:local="clr-namespace:SerialViewer_Plus"
         xmlns:reactiveui="http://reactiveui.net"
         xmlns:viewmodels="clr-namespace:SerialViewer_Plus.ViewModels"
-        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
-        mc:Ignorable="d"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF" xmlns:views="clr-namespace:SerialViewer_Plus.Views"
+                            mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
         <Grid.RowDefinitions>
@@ -36,7 +36,7 @@
                 <RowDefinition/>
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <lvc:CartesianChart x:Name="chart" EasingFunction="{x:Null}" LegendPosition="Hidden" TooltipFontSize="10" MouseLeftButtonDown="chart_MouseLeftButtonDown" MouseLeftButtonUp="chart_MouseLeftButtonUp" MouseMove="chart_MouseMove" MouseRightButtonDown="chart_MouseRightButtonDown" MouseLeave="chart_MouseLeave"/>
+            <views:ViewportCartesianChart x:Name="chart" EasingFunction="{x:Null}" LegendPosition="Hidden" TooltipFontSize="10" MouseRightButtonDown="chart_MouseRightButtonDown" />
             <Slider x:Name="horzPosSlider" Grid.Row="1" FlowDirection="RightToLeft" />
             <Slider x:Name="vertPosSlider" Grid.Column="1" Orientation="Vertical" />
         </Grid>
@@ -51,6 +51,6 @@
             <Label Content="Line Width: "/>
             <TextBox x:Name="lineWidthBox"  MinWidth="25" />
         </DockPanel>
-        <lvc:CartesianChart x:Name="fftView" Grid.Row="4" AnimationsSpeed="00:00:01"></lvc:CartesianChart>
+        <views:ViewportCartesianChart x:Name="fftView" Grid.Row="4" AnimationsSpeed="00:00:01"></views:ViewportCartesianChart>
     </Grid>
 </reactiveui:ReactiveWindow>

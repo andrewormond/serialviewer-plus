@@ -53,60 +53,17 @@ namespace SerialViewer_Plus.ViewModels
 
         [Reactive] public double? MinYLimit { get; set; }
         [Reactive] public double? MaxYLimit { get; set; }
-
-
-        public void OnSelectionStart(Point dataPosition)
-        {
-            Log.Information($"Section start: {dataPosition.PrettyPrint()}");
-            Sections.Clear();
-            Sections.Add(new()
-            {
-                 Fill = new SolidColorPaint(SKColors.Gray.WithAlpha(128)),
-                 Xi = dataPosition.X,
-                 Yi = dataPosition.Y,
-                 Xj = dataPosition.X,
-                 Yj = dataPosition.Y,
-            });
-        }
-
-        public void OnSelectionChange(Point dataPosition)
-        {
-            if(Sections.Count > 0)
-            {
-
-               // Log.Information($"Section change: {dataPosition.PrettyPrint()}");
-                Sections.First().Xj = dataPosition.X;
-                Sections.First().Yj = dataPosition.Y;
-            }
-        }
-
         [Reactive] public bool ZoomPause { get; set; }
-        public void OnSelectionComplete(Point dataPosition)
+        public void OnSectionSelected(RectangularSection sect)
         {
-
-            if (Sections.Count > 0)
+            if(sect.Xi != sect.Xj && sect.Yi != sect.Yj)
             {
-                Log.Information($"Section complete: {dataPosition.PrettyPrint()}");
-                var sect = Sections.First();
-                if(sect.Xi != sect.Xj && sect.Yi != sect.Yj)
-                {
-                    MaxXLimit = Math.Max(sect.Xi.Value, sect.Xj.Value);
-                    MinXLimit = Math.Min(sect.Xi.Value, sect.Xj.Value);
-                    MaxYLimit = Math.Max(sect.Yi.Value, sect.Yj.Value);
-                    MinYLimit = Math.Min(sect.Yi.Value, sect.Yj.Value);
-                    Log.Information($"Selection is: X:({MinXLimit}->{MaxXLimit}), Y:({MinYLimit}->{MaxYLimit}");
-                    ZoomPause = true;
-                }
-                Sections.Clear();
-            }
-        }
-
-        public void OnSelectionCancel()
-        {
-            if (Sections.Count > 0)
-            {
-                Log.Information($"Section cancel");
-                Sections.Clear();
+                MaxXLimit = Math.Max(sect.Xi.Value, sect.Xj.Value);
+                MinXLimit = Math.Min(sect.Xi.Value, sect.Xj.Value);
+                MaxYLimit = Math.Max(sect.Yi.Value, sect.Yj.Value);
+                MinYLimit = Math.Min(sect.Yi.Value, sect.Yj.Value);
+                Log.Information($"Selection is: X:({MinXLimit}->{MaxXLimit}), Y:({MinYLimit}->{MaxYLimit}");
+                ZoomPause = true;
             }
         }
 
@@ -121,7 +78,6 @@ namespace SerialViewer_Plus.ViewModels
         public void OnSelectionReset()
         {
             Log.Information($"Section reset");
-            Sections.Clear();
             ResetAxis();
             ZoomPause = false;
         }

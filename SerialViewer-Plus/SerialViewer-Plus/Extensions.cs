@@ -17,15 +17,6 @@ namespace SerialViewer_Plus
         {
             var fp = chart.ScaleUIPoint(new((float)mousePoint.X , (float)mousePoint.Y));
             return new(fp[0], fp[1]);
-            Bounds bounds = chart.XAxes.First().VisibleDataBounds;
-            double xPos = mousePoint.X / chart.ActualWidth;
-            xPos *= bounds.Delta;
-            xPos += bounds.Min;
-            bounds = chart.YAxes.First().VisibleDataBounds;
-            double yPos = 1 - mousePoint.Y / (chart.ActualHeight - ( chart.YAxes.First().Padding.Bottom + chart.YAxes.First().Padding.Top));
-            yPos *= bounds.Delta;
-            yPos += bounds.Min;
-            return new(xPos, yPos);
         }
 
         public static Point GetDataPosition(this CartesianChart chart, MouseButtonEventArgs e)
