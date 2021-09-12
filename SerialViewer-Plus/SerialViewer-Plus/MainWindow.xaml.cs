@@ -1,4 +1,5 @@
 ﻿using LiveChartsCore;
+using LiveChartsCore.Kernel.Sketches;
 using LiveChartsCore.SkiaSharpView.WPF;
 using ReactiveUI;
 using SerialViewer_Plus.ViewModels;
@@ -57,6 +58,10 @@ namespace SerialViewer_Plus
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(series => fftView.Series = series)
                          .DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.Sections)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(sects => chart.Sections = sects)
+                         .DisposeWith(registration);
 
                 ViewModel.WhenAnyValue(vm => vm.FftSize)
                          .ObserveOn(RxApp.MainThreadScheduler)
@@ -107,26 +112,70 @@ namespace SerialViewer_Plus
                     }
                 }).DisposeWith(registration);
 
+                this.OneWayBind(ViewModel, vm => vm.BufferSize, v => v.horzPosSlider.Maximum).DisposeWith(registration);
+
                 this.BindCommand(ViewModel, vm => vm.ClearPointsCommand, v => v.clearButton).DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.MinXLimit, vm => vm.MaxXLimit)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(limits =>
+                         {
+                             IAxis axis = chart.XAxes.First();
+                             axis.MinLimit = limits.Item1;
+                             axis.MaxLimit = limits.Item2;
+                         })
+                         .DisposeWith(registration);
+
+                ViewModel.WhenAnyValue(vm => vm.MinYLimit, vm => vm.MaxYLimit)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(limits =>
+                         {
+                             IAxis axis = chart.YAxes.First();
+                             axis.MinLimit = limits.Item1;
+                             axis.MaxLimit = limits.Item2;
+                         })
+                         .DisposeWith(registration);
+
             });
         }
 
-        private void chart_MouseDown(object sender, MouseButtonEventArgs e)
+
+        private void chart_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if(sender is CartesianChart chart)
             {
-                Log.Information("Right click");
-                foreach (var xaxis in chart.XAxes)
-                {
-                    xaxis.MinLimit = null;
-                    xaxis.MaxLimit = null;
-                }
-                foreach (var yaxis in chart.YAxes)
-                {
-                    yaxis.MinLimit = null;
-                    yaxis.MaxLimit = null;
-                }
+                ViewModel?.OnSelectionStart(chart.GetDataPosition(e));
             }
+        }
+
+        private void chart_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is CartesianChart chart)
+            {
+                ViewModel?.OnSelectionComplete(chart.GetDataPosition(e));
+            }
+        }
+
+        private void chart_MouseMove(object sender, MouseEventArgs e)
+        {
+
+            if (sender is CartesianChart chart)
+            {
+                ViewModel?.OnSelectionChange(chart.GetDataPosition(e));
+            }
+        }
+
+        private void chart_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+
+            if (sender is CartesianChart chart)
+            {
+                ViewModel?.OnSelectionReset();
+            }
+        }
+
+        private void chart_MouseLeave(object sender, MouseEventArgs e)
+        {
+            ViewModel?.OnSelectionCancel();
         }
     }
 }

@@ -27,7 +27,19 @@
             <Label Content="Buffer Size: " />
             <TextBox x:Name="bufferSizeBox" />
         </DockPanel>
-        <lvc:CartesianChart x:Name="chart" Grid.Row="1" EasingFunction="{x:Null}" IsManipulationEnabled="True" MouseDown="chart_MouseDown" />
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <lvc:CartesianChart x:Name="chart" EasingFunction="{x:Null}" LegendPosition="Hidden" TooltipFontSize="10" MouseLeftButtonDown="chart_MouseLeftButtonDown" MouseLeftButtonUp="chart_MouseLeftButtonUp" MouseMove="chart_MouseMove" MouseRightButtonDown="chart_MouseRightButtonDown" MouseLeave="chart_MouseLeave"/>
+            <Slider x:Name="horzPosSlider" Grid.Row="1" FlowDirection="RightToLeft" />
+            <Slider x:Name="vertPosSlider" Grid.Column="1" Orientation="Vertical" />
+        </Grid>
         <GridSplitter Grid.Row="2"/>
         <DockPanel Grid.Row="3" LastChildFill="False" >
             <CheckBox x:Name="enableFFTCheckbox" Content="Enable FFT" IsChecked="True" VerticalAlignment="Center" />

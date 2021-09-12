@@ -1,0 +1,44 @@
+﻿using LiveChartsCore.Measure;
+using LiveChartsCore.SkiaSharpView.WPF;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+
+namespace SerialViewer_Plus
+{
+    public static class Extensions
+    {
+
+        public static Point GetDataPosition(this CartesianChart chart, Point mousePoint)
+        {
+            var fp = chart.ScaleUIPoint(new((float)mousePoint.X , (float)mousePoint.Y));
+            return new(fp[0], fp[1]);
+            Bounds bounds = chart.XAxes.First().VisibleDataBounds;
+            double xPos = mousePoint.X / chart.ActualWidth;
+            xPos *= bounds.Delta;
+            xPos += bounds.Min;
+            bounds = chart.YAxes.First().VisibleDataBounds;
+            double yPos = 1 - mousePoint.Y / (chart.ActualHeight - ( chart.YAxes.First().Padding.Bottom + chart.YAxes.First().Padding.Top));
+            yPos *= bounds.Delta;
+            yPos += bounds.Min;
+            return new(xPos, yPos);
+        }
+
+        public static Point GetDataPosition(this CartesianChart chart, MouseButtonEventArgs e)
+        {
+            return chart.GetDataPosition(e.GetPosition(chart));
+        }
+
+        public static Point GetDataPosition(this CartesianChart chart, MouseEventArgs e)
+        {
+            return chart.GetDataPosition(e.GetPosition(chart));
+        }
+        
+
+        public static string PrettyPrint(this Point p) => $"({p.X:0.00}, {p.Y:0.00})";
+    }
+}

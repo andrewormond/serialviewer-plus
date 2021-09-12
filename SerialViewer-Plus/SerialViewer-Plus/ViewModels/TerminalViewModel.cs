@@ -20,6 +20,7 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
+using System.Windows;
 
 namespace SerialViewer_Plus.ViewModels
 {
@@ -47,6 +48,84 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public float LineThickness { get; set; }
         [Reactive] public float MarkerDiameter { get; set; }
 
+        [Reactive] public double? MinXLimit { get; set; }
+        [Reactive] public double? MaxXLimit { get; set; }
+
+        [Reactive] public double? MinYLimit { get; set; }
+        [Reactive] public double? MaxYLimit { get; set; }
+
+
+        public void OnSelectionStart(Point dataPosition)
+        {
+            Log.Information($"Section start: {dataPosition.PrettyPrint()}");
+            Sections.Clear();
+            Sections.Add(new()
+            {
+                 Fill = new SolidColorPaint(SKColors.Gray.WithAlpha(128)),
+                 Xi = dataPosition.X,
+                 Yi = dataPosition.Y,
+                 Xj = dataPosition.X,
+                 Yj = dataPosition.Y,
+            });
+        }
+
+        public void OnSelectionChange(Point dataPosition)
+        {
+            if(Sections.Count > 0)
+            {
+
+               // Log.Information($"Section change: {dataPosition.PrettyPrint()}");
+                Sections.First().Xj = dataPosition.X;
+                Sections.First().Yj = dataPosition.Y;
+            }
+        }
+
+        [Reactive] public bool ZoomPause { get; set; }
+        public void OnSelectionComplete(Point dataPosition)
+        {
+
+            if (Sections.Count > 0)
+            {
+                Log.Information($"Section complete: {dataPosition.PrettyPrint()}");
+                var sect = Sections.First();
+                if(sect.Xi != sect.Xj && sect.Yi != sect.Yj)
+                {
+                    MaxXLimit = Math.Max(sect.Xi.Value, sect.Xj.Value);
+                    MinXLimit = Math.Min(sect.Xi.Value, sect.Xj.Value);
+                    MaxYLimit = Math.Max(sect.Yi.Value, sect.Yj.Value);
+                    MinYLimit = Math.Min(sect.Yi.Value, sect.Yj.Value);
+                    Log.Information($"Selection is: X:({MinXLimit}->{MaxXLimit}), Y:({MinYLimit}->{MaxYLimit}");
+                    ZoomPause = true;
+                }
+                Sections.Clear();
+            }
+        }
+
+        public void OnSelectionCancel()
+        {
+            if (Sections.Count > 0)
+            {
+                Log.Information($"Section cancel");
+                Sections.Clear();
+            }
+        }
+
+        public void ResetAxis()
+        {
+            MaxXLimit = null;
+            MaxYLimit = null;
+            MinXLimit = null;
+            MinYLimit = null;
+        }
+
+        public void OnSelectionReset()
+        {
+            Log.Information($"Section reset");
+            Sections.Clear();
+            ResetAxis();
+            ZoomPause = false;
+        }
+
         public TerminalViewModel()
         {
             LineThickness = 1;
@@ -54,7 +133,7 @@ namespace SerialViewer_Plus.ViewModels
             FftSize = 256;
             BufferSize = 512;
             EnableFft = true;
-            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
+            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Periodic_Pulse);
 
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
@@ -104,7 +183,7 @@ namespace SerialViewer_Plus.ViewModels
 
                 var startTime = DateTime.Now;
                 Com.IncomingStream
-                .Where(_ => !IsPaused)
+                .Where(_ => !IsPaused && !ZoomPause)
                 .ObserveOn(RxApp.TaskpoolScheduler)
                 .Select<string, object>(s =>
                 {
@@ -133,12 +212,29 @@ namespace SerialViewer_Plus.ViewModels
                 }).DisposeWith(registration);
 
                 Com.IncomingStream
-                    .Where(_ => !IsPaused && EnableFft)
+                    .Where(_ => !IsPaused && EnableFft && !ZoomPause)
                     .Sample(TimeSpan.FromSeconds(1.0))
                     .Merge(this.WhenAnyValue(vm => vm.FftSize).Select(_ => ""))
                     .ObserveOn(RxApp.TaskpoolScheduler)
                     .Subscribe(_ => UpdateFFTs())
                     .DisposeWith(registration);
+
+                this.WhenAnyValue(vm => vm.IsPaused)
+                    .DistinctUntilChanged()
+                    .Where(ip => ip == false)
+                    .Subscribe(_ =>
+                    {
+                        ZoomPause = false;
+                        ResetAxis();
+                    })
+                    .DisposeWith(registration);
+
+                this.WhenAnyValue(vm => vm.ZoomPause)
+                    .DistinctUntilChanged()
+                    .Where(zp => zp == true)
+                    .Subscribe(b => IsPaused = true)
+                    .DisposeWith(registration);
+
 
                 this.WhenAnyValue(vm => vm.FftCalculations)
                     .Where(calculations => calculations != null)
@@ -194,7 +290,8 @@ namespace SerialViewer_Plus.ViewModels
         [Reactive] public BaseCom Com { get; set; }
         [Reactive] public bool EnableFft { get; set; }
 
-        public ObservableCollection<LineSeries<ObservablePoint>> FftSeries { get; set; } = new();
+        public ObservableCollection<LineSeries<ObservablePoint>> FftSeries { get; } = new();
+        public ObservableCollection<RectangularSection> Sections { get; } = new();
 
         [Reactive] public int FftSize { get; set; }
 
