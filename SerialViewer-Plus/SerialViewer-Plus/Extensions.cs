@@ -1,4 +1,5 @@
-﻿using LiveChartsCore.Measure;
+﻿using LiveChartsCore.Defaults;
+using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView.WPF;
 using Newtonsoft.Json.Linq;
 using SkiaSharp;
@@ -62,5 +63,7 @@ namespace SerialViewer_Plus
             byte alpha = token.Value<byte>(KEY_ALPHA);
             return new SKColor(red, green, blue, alpha);
         }
+
+        public static Point ToPoint(this ObservablePoint op) => new Point(op.X ?? 0, op.Y ?? 0);
     }
 }

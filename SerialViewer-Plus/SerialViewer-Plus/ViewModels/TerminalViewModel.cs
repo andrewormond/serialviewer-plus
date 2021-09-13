@@ -76,7 +76,7 @@ namespace SerialViewer_Plus.ViewModels
             FftSize = 256;
             BufferSize = 525;
             EnableFft = true;
-            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Auto_Multi_Series_With_Common_X);
+            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Periodic_Pulse);
 
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
@@ -405,6 +405,7 @@ namespace SerialViewer_Plus.ViewModels
             SampleCount++;
         }
 
+       [Reactive]  public Point[]  FftStats { get; set; }
         private void UpdateFFTs()
         {
             ObservablePoint[][] seriesPoints = Series.Select(s => s as PlotSeries)
@@ -436,10 +437,30 @@ namespace SerialViewer_Plus.ViewModels
                     double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
                     double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
 
-                    return freqSpan.Zip(lmSpectrum, (f, l) => new ObservablePoint(f, l)).ToArray();
+                    ObservablePoint[] fftPoints = freqSpan.Zip(lmSpectrum, (f, l) => new ObservablePoint(f, l)).ToArray();
+
+                    Point[] slopePoints = Enumerable.Range(1, fftPoints.Length - 2)
+                                                    .Where(i =>
+                                                    {
+                                                        var p1 = fftPoints[i - 1].ToPoint();
+                                                        var p2 = fftPoints[i].ToPoint();
+                                                        var p3 = fftPoints[i + 1].ToPoint();
+                                                        return p2.Y > p1.Y && p2.Y > p3.Y;
+                                                    })
+                                                    .Select(i => fftPoints[i].ToPoint())
+                                                    .OrderByDescending(p => p.Y)
+                                                    .ToArray();
+                    if(slopePoints.Length > 5)
+                    {
+                        slopePoints = slopePoints.Take(5).ToArray();
+                    }
+
+                    FftStats = slopePoints;
+                    return fftPoints;
                 }
                 else
                 {
+                    FftStats = Array.Empty<Point>();
                     return Array.Empty<ObservablePoint>();
                 }
             }).ToArray();

@@ -43,7 +43,7 @@ namespace SerialViewer_Plus.Com
         {
             [EmulationType.Emulated_Auto_Single_Series] = (t) => $"{SqrWave(1, t):0.000000}",
             [EmulationType.Emulated_Auto_Multi_series] = (t) => $"{SqrWave(1, t):0.000000}, {SinWave(1, t):0.000000}",
-            [EmulationType.Emulated_Auto_XY_Series] = (t) => $"({t},{SinWave(1, t):0.000000})",
+            [EmulationType.Emulated_Auto_XY_Series] = (t) => $"({t},{SqrWave(10, t):0.000000})",
             [EmulationType.Emulated_Auto_Multi_Series_With_Common_X] = (t) => $"({t},{SinWave(10, t):0.000000}, {SqrWave(25,t):.00000}",
             [EmulationType.Emulated_Auto_Mixed_Single_And_Pair] = (t) => $"({t},{SinWave(1, t):0.000000}), {SqrWave(0.5,t):.00000}",
             [EmulationType.Emulated_Periodic_Pulse] = (t) => 

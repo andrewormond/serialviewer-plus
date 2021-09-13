@@ -44,7 +44,12 @@
             <Label Content="Line Width: "/>
             <TextBox x:Name="lineWidthBox"  MinWidth="25" />
         </DockPanel>
-        <views:ViewportCartesianChart x:Name="fftView" Grid.Row="4" AnimationsSpeed="00:00:00.5"></views:ViewportCartesianChart>
+        <DockPanel Grid.Row="4">
+            <DataGrid x:Name="fftStatGrid" IsReadOnly="True" DockPanel.Dock="Right">
+                
+            </DataGrid>
+            <views:ViewportCartesianChart x:Name="fftView" AnimationsSpeed="00:00:00.5"/>
+        </DockPanel>
         <GridSplitter Grid.Row="5" HorizontalAlignment="Stretch" />
         <GroupBox Header="Series Details" Grid.Row="6" MinHeight="50">
             <DataGrid x:Name="seriesDetailsControl" AutoGenerateColumns="False">

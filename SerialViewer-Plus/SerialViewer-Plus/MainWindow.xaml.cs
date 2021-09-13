@@ -70,6 +70,10 @@ namespace SerialViewer_Plus
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(sects => chart.Sections = sects)
                          .DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.FftStats)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(stats => fftStatGrid.ItemsSource = stats)
+                         .DisposeWith(registration);
 
                 ViewModel.WhenAnyValue(vm => vm.FftSize)
                          .ObserveOn(RxApp.MainThreadScheduler)
