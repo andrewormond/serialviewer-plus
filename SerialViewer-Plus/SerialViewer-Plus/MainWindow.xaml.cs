@@ -70,6 +70,11 @@ namespace SerialViewer_Plus
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(sects => chart.Sections = sects)
                          .DisposeWith(registration);
+                ViewModel.WhenAnyValue(vm => vm.SpectrogramSeries)
+                         .Where(spect => spect != null)
+                         .ObserveOn(RxApp.MainThreadScheduler)
+                         .Subscribe(spect => spectrogramView.Series = new ISeries[] { spect })
+                         .DisposeWith(registration);
                 ViewModel.WhenAnyValue(vm => vm.FftStats)
                          .ObserveOn(RxApp.MainThreadScheduler)
                          .Subscribe(stats => fftStatGrid.ItemsSource = stats)

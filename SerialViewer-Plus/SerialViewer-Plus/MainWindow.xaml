@@ -46,8 +46,9 @@
         </DockPanel>
         <DockPanel Grid.Row="4">
             <DataGrid x:Name="fftStatGrid" IsReadOnly="True" DockPanel.Dock="Right">
-                
+
             </DataGrid>
+            <views:ViewportCartesianChart x:Name="spectrogramView" MinWidth="250" AnimationsSpeed="00:00:00.5"/>
             <views:ViewportCartesianChart x:Name="fftView" AnimationsSpeed="00:00:00.5"/>
         </DockPanel>
         <GridSplitter Grid.Row="5" HorizontalAlignment="Stretch" />

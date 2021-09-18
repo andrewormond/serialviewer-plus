@@ -1,6 +1,7 @@
 ﻿using DynamicData;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Drawing.Common;
 using LiveChartsCore.Kernel;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
@@ -69,6 +70,8 @@ namespace SerialViewer_Plus.ViewModels
 
         public Interaction<Unit, Unit> RequestAxisReset { get; } = new();
 
+        public TimeSpan FftUpdateRate = TimeSpan.FromSeconds(0.25);
+
         public TerminalViewModel()
         {
             LineThickness = 1;
@@ -76,11 +79,16 @@ namespace SerialViewer_Plus.ViewModels
             FftSize = 256;
             BufferSize = 525;
             EnableFft = true;
-            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Periodic_Pulse);
+            Com = new EmulatedCom(EmulatedCom.EmulationType.Emulated_Noisy_Ramp);
 
             ClearPointsCommand = ReactiveCommand.Create(() =>
             {
                 Series.Select(s => s.Values).Cast<ObservableCollection<ObservablePoint>>().ToList().ForEach(ps => ps?.Clear());
+
+                if (SpectrogramSeries?.Values is ObservableCollection<WeightedPoint> points)
+                {
+                    points.Clear();
+                }
             }, null, RxApp.MainThreadScheduler);
 
             this.WhenActivated((CompositeDisposable registration) =>
@@ -158,7 +166,7 @@ namespace SerialViewer_Plus.ViewModels
 
                 Com.IncomingStream
                     .Where(_ => !IsPaused && EnableFft && !ZoomPause)
-                    .Sample(TimeSpan.FromSeconds(1.0))
+                    .Sample(FftUpdateRate)
                     .Merge(this.WhenAnyValue(vm => vm.FftSize).Select(_ => ""))
                     .ObserveOn(RxApp.TaskpoolScheduler)
                     .Subscribe(_ => UpdateFFTs())
@@ -196,6 +204,7 @@ namespace SerialViewer_Plus.ViewModels
                                 {
                                     LineSmoothness = 0,
                                     Stroke = new SolidColorPaint(SeriesColors[i]) { StrokeThickness = LineThickness },
+                                    
                                     //GeometryStroke = null,
                                     TooltipLabelFormatter = FormatTooltipFFT,
                                     GeometryFill = new SolidColorPaint(SeriesColors[i]),
@@ -209,6 +218,30 @@ namespace SerialViewer_Plus.ViewModels
                             {
                                 fPoints.Clear();
                                 fPoints.AddRange(calculation[i]);
+                            }
+                            if (i == 0 && calculation.Length > 0)
+                            {
+                                if (SpectrogramSeries == null)
+                                {
+                                    SpectrogramSeries = new HeatSeries<WeightedPoint>()
+                                    {
+                                        HeatMap = new System.Drawing.Color[] { System.Drawing.Color.Blue, System.Drawing.Color.Yellow, System.Drawing.Color.Red },
+                                        ColorStops = new[]{
+                                            0.0, 0.8, 1.0
+                                            },
+                                        Values = new ObservableCollection<WeightedPoint>(),
+                                        PointPadding = new(0.0, 0.0),
+                                        TooltipLabelFormatter = (point) => $"{point.SecondaryValue* FftUpdateRate.TotalSeconds:0.0} sec: ({point.PrimaryValue:0.0} Hz, {point.TertiaryValue:0.000} dB)",
+                                         
+                                    };
+                                }
+                                if(SpectrogramSeries.Values is ObservableCollection<WeightedPoint> points)
+                                {
+                                    double n = (points.LastOrDefault()?.X ?? 0) + 1;
+                                    points.AddRange(calculation[0].Select(op => new WeightedPoint(n, op.X, op.Y)));
+                                    
+                                    points.RemoveMany(points.Where(p => p.X < n - 10).ToArray());
+                                }
                             }
                         }
                     })
@@ -234,11 +267,13 @@ namespace SerialViewer_Plus.ViewModels
         public ViewModelActivator Activator { get; } = new();
         [Reactive] public int BufferSize { get; set; }
         public ReactiveCommand<Unit, Unit> ClearPointsCommand { get; init; }
-        [Reactive] public BaseCom Com { get; set; }
+        [Reactive] public BaseCom Com { get; set; } 
         [Reactive] public bool EnableFft { get; set; }
 
         public ObservableCollection<PlotSeries> FftSeries { get; } = new();
         public ObservableCollection<RectangularSection> Sections { get; } = new();
+
+        [Reactive] public HeatSeries<WeightedPoint> SpectrogramSeries { get; set; }
 
         [Reactive] public int FftSize { get; set; }
 
@@ -437,7 +472,7 @@ namespace SerialViewer_Plus.ViewModels
                     double[] lmSpectrum = DSPLib.DSP.ConvertComplex.ToMagnitude(cSpectrum);
                     double[] freqSpan = fft.FrequencySpan(1.0 / sampleTime);
 
-                    ObservablePoint[] fftPoints = freqSpan.Zip(lmSpectrum, (f, l) => new ObservablePoint(f, l)).ToArray();
+                    ObservablePoint[] fftPoints = freqSpan.Zip(lmSpectrum, (f, l) => new ObservablePoint(f, Math.Max(20.0*Math.Log10(l), -50))).ToArray();
 
                     Point[] slopePoints = Enumerable.Range(1, fftPoints.Length - 2)
                                                     .Where(i =>

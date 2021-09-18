@@ -1,6 +1,4 @@
 ﻿2) User Selectable Visable Size
-3) User selectable FFT window with auto-updating maximum
 5) Zoom and Pan
-6) FFT over a specific area
 7) Actual COM Port
 9) Protocol for plot details (Not auto mode)
